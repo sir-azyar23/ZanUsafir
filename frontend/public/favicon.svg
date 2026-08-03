@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Green rounded square background -->
+  <rect width="512" height="512" rx="110" ry="110" fill="#3FAF4A"/>
+
+  <!-- White circle -->
+  <circle cx="256" cy="256" r="210" fill="#ffffff"/>
+
+  <!-- Green ring border -->
+  <circle cx="256" cy="256" r="210" fill="none" stroke="#3FAF4A" stroke-width="14"/>
+
+  <!-- Bus body - main black body -->
+  <rect x="88" y="190" width="336" height="185" rx="14" fill="#1a1a1a"/>
+
+  <!-- Bus top roof (white/light gray) -->
+  <rect x="100" y="175" width="312" height="30" rx="8" fill="#e8e8e8"/>
+
+  <!-- Green accent stripe along top of body -->
+  <rect x="88" y="198" width="336" height="18" rx="0" fill="#3FAF4A"/>
+
+  <!-- Windows row -->
+  <rect x="100" y="222" width="55" height="45" rx="5" fill="#2a2a2a" stroke="#3FAF4A" stroke-width="2"/>
+  <rect x="165" y="222" width="55" height="45" rx="5" fill="#2a2a2a" stroke="#3FAF4A" stroke-width="2"/>
+  <rect x="230" y="222" width="55" height="45" rx="5" fill="#2a2a2a" stroke="#3FAF4A" stroke-width="2"/>
+  <rect x="295" y="222" width="55" height="45" rx="5" fill="#2a2a2a" stroke="#3FAF4A" stroke-width="2"/>
+
+  <!-- Front windshield area -->
+  <rect x="360" y="205" width="52" height="75" rx="6" fill="#1a1a1a" stroke="#3FAF4A" stroke-width="2"/>
+  <!-- Destination board (LED display) -->
+  <rect x="363" y="210" width="46" height="22" rx="3" fill="#111"/>
+  <text x="386" y="225" text-anchor="middle" font-family="monospace" font-size="9" font-weight="bold" fill="#FFA500" letter-spacing="0.5">ZAN</text>
+
+  <!-- Green stripe on lower body -->
+  <rect x="88" y="290" width="336" height="16" rx="0" fill="#3FAF4A"/>
+
+  <!-- Lower body panel (sky blue stripe) -->
+  <rect x="88" y="306" width="250" height="40" rx="0" fill="#B3E5FC"/>
+
+  <!-- Front bumper / grille area -->
+  <rect x="395" y="330" width="29" height="45" rx="6" fill="#2a2a2a"/>
+  <!-- Headlights -->
+  <rect x="398" y="335" width="23" height="10" rx="3" fill="#fff9c4"/>
+  <rect x="398" y="350" width="23" height="10" rx="3" fill="#fff9c4"/>
+
+  <!-- Door -->
+  <rect x="358" y="272" width="30" height="73" rx="4" fill="#111" stroke="#3FAF4A" stroke-width="1.5"/>
+
+  <!-- Rear bumper -->
+  <rect x="88" y="350" width="25" height="25" rx="4" fill="#2a2a2a"/>
+
+  <!-- Wheels -->
+  <circle cx="160" cy="375" r="30" fill="#1a1a1a" stroke="#555" stroke-width="3"/>
+  <circle cx="160" cy="375" r="14" fill="#444"/>
+  <circle cx="160" cy="375" r="6" fill="#888"/>
+
+  <circle cx="360" cy="375" r="30" fill="#1a1a1a" stroke="#555" stroke-width="3"/>
+  <circle cx="360" cy="375" r="14" fill="#444"/>
+  <circle cx="360" cy="375" r="6" fill="#888"/>
+
+  <!-- Ground shadow -->
+  <ellipse cx="256" cy="408" rx="185" ry="8" fill="rgba(0,0,0,0.12)"/>
+</svg>

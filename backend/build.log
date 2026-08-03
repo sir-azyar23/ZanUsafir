@@ -1,0 +1,61 @@
+[[1;34mINFO[m] Scanning for projects...
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m-----------------< [0;36mcom.zanusafiri:zanusafiri-backend[0;1m >------------------[m
+[[1;34mINFO[m] [1mBuilding ZanUsafiri Backend 1.0.0[m
+[[1;34mINFO[m] [1m--------------------------------[ jar ]---------------------------------[m
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-clean-plugin:3.3.2:clean[m [1m(default-clean)[m @ [36mzanusafiri-backend[0;1m ---[m
+[[1;34mINFO[m] Deleting /home/zubeir/Documents/Zubeir final year project/projects/ZanUsafir/backend/target
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-resources-plugin:3.3.1:resources[m [1m(default-resources)[m @ [36mzanusafiri-backend[0;1m ---[m
+[[1;34mINFO[m] Copying 1 resource from src/main/resources to target/classes
+[[1;34mINFO[m] Copying 0 resource from src/main/resources to target/classes
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-compiler-plugin:3.13.0:compile[m [1m(default-compile)[m @ [36mzanusafiri-backend[0;1m ---[m
+[[1;34mINFO[m] Recompiling the module because of [1mchanged source code[m.
+[[1;34mINFO[m] Compiling 50 source files with javac [debug parameters release 21] to target/classes
+[[1;34mINFO[m] /home/zubeir/Documents/Zubeir final year project/projects/ZanUsafir/backend/src/main/java/com/zanusafiri/security/JwtTokenProvider.java: /home/zubeir/Documents/Zubeir final year project/projects/ZanUsafir/backend/src/main/java/com/zanusafiri/security/JwtTokenProvider.java uses or overrides a deprecated API.
+[[1;34mINFO[m] /home/zubeir/Documents/Zubeir final year project/projects/ZanUsafir/backend/src/main/java/com/zanusafiri/security/JwtTokenProvider.java: Recompile with -Xlint:deprecation for details.
+[[1;34mINFO[m] -------------------------------------------------------------
+[[1;33mWARNING[m] COMPILATION WARNING : 
+[[1;34mINFO[m] -------------------------------------------------------------
+[[1;33mWARNING[m] /home/zubeir/Documents/Zubeir final year project/projects/ZanUsafir/backend/src/main/java/com/zanusafiri/entity/Notification.java:[32,21] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[[1;33mWARNING[m] /home/zubeir/Documents/Zubeir final year project/projects/ZanUsafir/backend/src/main/java/com/zanusafiri/entity/User.java:[42,21] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[[1;33mWARNING[m] /home/zubeir/Documents/Zubeir final year project/projects/ZanUsafir/backend/src/main/java/com/zanusafiri/entity/Route.java:[33,29] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[[1;33mWARNING[m] /home/zubeir/Documents/Zubeir final year project/projects/ZanUsafir/backend/src/main/java/com/zanusafiri/entity/Route.java:[36,23] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[[1;33mWARNING[m] /home/zubeir/Documents/Zubeir final year project/projects/ZanUsafir/backend/src/main/java/com/zanusafiri/entity/Fare.java:[37,20] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[[1;33mWARNING[m] /home/zubeir/Documents/Zubeir final year project/projects/ZanUsafir/backend/src/main/java/com/zanusafiri/entity/BusStop.java:[38,29] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[[1;33mWARNING[m] /home/zubeir/Documents/Zubeir final year project/projects/ZanUsafir/backend/src/main/java/com/zanusafiri/dto/AuthResponse.java:[14,20] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[[1;34mINFO[m] 7 warnings 
+[[1;34mINFO[m] -------------------------------------------------------------
+[[1;34mINFO[m] -------------------------------------------------------------
+[[1;31mERROR[m] COMPILATION ERROR : 
+[[1;34mINFO[m] -------------------------------------------------------------
+[[1;31mERROR[m] /home/zubeir/Documents/Zubeir final year project/projects/ZanUsafir/backend/src/main/java/com/zanusafiri/security/JwtTokenProvider.java:[49,20] cannot find symbol
+  symbol:   method parserBuilder()
+  location: class io.jsonwebtoken.Jwts
+[[1;31mERROR[m] /home/zubeir/Documents/Zubeir final year project/projects/ZanUsafir/backend/src/main/java/com/zanusafiri/security/JwtTokenProvider.java:[59,17] cannot find symbol
+  symbol:   method parserBuilder()
+  location: class io.jsonwebtoken.Jwts
+[[1;34mINFO[m] 2 errors 
+[[1;34mINFO[m] -------------------------------------------------------------
+[[1;34mINFO[m] [1m------------------------------------------------------------------------[m
+[[1;34mINFO[m] [1;31mBUILD FAILURE[m
+[[1;34mINFO[m] [1m------------------------------------------------------------------------[m
+[[1;34mINFO[m] Total time:  12.176 s
+[[1;34mINFO[m] Finished at: 2026-04-22T14:28:44+03:00
+[[1;34mINFO[m] [1m------------------------------------------------------------------------[m
+[[1;31mERROR[m] Failed to execute goal [32morg.apache.maven.plugins:maven-compiler-plugin:3.13.0:compile[m [1m(default-compile)[m on project [36mzanusafiri-backend[m: [1;31mCompilation failure[m: Compilation failure: 
+[[1;31mERROR[m] /home/zubeir/Documents/Zubeir final year project/projects/ZanUsafir/backend/src/main/java/com/zanusafiri/security/JwtTokenProvider.java:[49,20] cannot find symbol
+[[1;31mERROR[m]   symbol:   method parserBuilder()
+[[1;31mERROR[m]   location: class io.jsonwebtoken.Jwts
+[[1;31mERROR[m] /home/zubeir/Documents/Zubeir final year project/projects/ZanUsafir/backend/src/main/java/com/zanusafiri/security/JwtTokenProvider.java:[59,17] cannot find symbol
+[[1;31mERROR[m]   symbol:   method parserBuilder()
+[[1;31mERROR[m]   location: class io.jsonwebtoken.Jwts
+[[1;31mERROR[m] -> [1m[Help 1][m
+[[1;31mERROR[m] 
+[[1;31mERROR[m] To see the full stack trace of the errors, re-run Maven with the [1m-e[m switch.
+[[1;31mERROR[m] Re-run Maven using the [1m-X[m switch to enable full debug logging.
+[[1;31mERROR[m] 
+[[1;31mERROR[m] For more information about the errors and possible solutions, please read the following articles:
+[[1;31mERROR[m] [1m[Help 1][m http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
