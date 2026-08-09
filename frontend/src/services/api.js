@@ -45,6 +45,10 @@ export const getRoute = (id) => api.get(`/routes/${id}`);
 export const createRoute = (data) => api.post('/routes', data);
 export const updateRoute = (id, data) => api.put(`/routes/${id}`, data);
 export const updateRouteSettings = (id, data) => api.put(`/routes/${id}/settings`, data);
+export const getRouteSettings = (id) => api.get(`/routes/${id}/settings`);
+export const assignBusesToRoute = (routeId, busIds) => api.post(`/routes/${routeId}/assign-buses`, busIds);
+export const getAssignedBusesCount = (routeId) => api.get(`/routes/${routeId}/buses/count`);
+export const getBusStopsCount = (routeId) => api.get(`/routes/${routeId}/stops/count`);
 export const deleteRoute = (id) => api.delete(`/routes/${id}`);
 export const addStop = (routeId, stopId, order, mapX = null, mapY = null) =>
   api.post(`/routes/${routeId}/stops`, null, {

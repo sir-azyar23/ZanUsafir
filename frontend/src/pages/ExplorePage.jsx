@@ -930,7 +930,7 @@ export default function ExplorePage() {
                     <span className="ep-detail-card-title">Available Buses</span>
                   </div>
                   <div className="ep-buses-count">
-                    {selectedRoute.assignedBusesCount ?? selectedRoute.busCount ?? 5} <span>Vehicles</span>
+                    {selectedRoute.assignedBusesCount ?? 0} <span>Vehicles</span>
                   </div>
                 </div>
 
@@ -944,17 +944,17 @@ export default function ExplorePage() {
                     <div className="ep-fare-badge ep-fare-student">
                       <School style={{ fontSize: 15 }} />
                       <span>Student</span>
-                      <strong>{selectedRoute.studentFare ? `${Number(selectedRoute.studentFare).toLocaleString()}` : '500'} TZS</strong>
+                      <strong>{selectedRoute.studentFare != null ? `${Number(selectedRoute.studentFare).toLocaleString()}` : '0'} TZS</strong>
                     </div>
                     <div className="ep-fare-badge ep-fare-adult">
                       <Person style={{ fontSize: 15 }} />
                       <span>Adult</span>
-                      <strong>{selectedRoute.adultFare ? `${Number(selectedRoute.adultFare).toLocaleString()}` : '1,000'} TZS</strong>
+                      <strong>{selectedRoute.adultFare != null ? `${Number(selectedRoute.adultFare).toLocaleString()}` : '0'} TZS</strong>
                     </div>
                     <div className="ep-fare-badge ep-fare-senior">
                       <Elderly style={{ fontSize: 15 }} />
                       <span>Senior 70+</span>
-                      <strong>{selectedRoute.seniorFare ? `${Number(selectedRoute.seniorFare).toLocaleString()}` : '300'} TZS</strong>
+                      <strong>{selectedRoute.seniorFare != null ? `${Number(selectedRoute.seniorFare).toLocaleString()}` : '0'} TZS</strong>
                     </div>
                   </div>
                 </div>

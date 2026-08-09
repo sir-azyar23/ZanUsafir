@@ -129,7 +129,8 @@ public class RouteService {
     @Transactional
     public RouteResponse updateRouteSettings(Long id, RouteSettingsRequest request) {
         Route route = routeRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Route not found: " + id));
+            .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.NOT_FOUND, "Route not found: " + id));
 
         if (request.getStudentFare() != null) route.setStudentFare(request.getStudentFare());
         if (request.getAdultFare() != null) route.setAdultFare(request.getAdultFare());
@@ -144,6 +145,18 @@ public class RouteService {
             "ROUTE"
         );
         return toResponse(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public RouteResponse getRouteSettings(Long id) {
+        Route route = routeRepository.findById(id)
+            .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.NOT_FOUND, "Route not found: " + id));
+        if (route.getStudentFare() == null || route.getAdultFare() == null ||
+            route.getSeniorFare() == null || route.getAssignedBusesCount() == null) {
+            return null;
+        }
+        return toResponse(route);
     }
 
     @Transactional
@@ -255,12 +268,56 @@ public class RouteService {
             .status(route.getStatus().name())
             .stops(stops)
             .busCount(route.getBuses() == null ? 0 : route.getBuses().size())
-            .studentFare(route.getStudentFare() != null ? route.getStudentFare() : new BigDecimal("500"))
-            .adultFare(route.getAdultFare() != null ? route.getAdultFare() : new BigDecimal("1000"))
-            .seniorFare(route.getSeniorFare() != null ? route.getSeniorFare() : new BigDecimal("300"))
-            .assignedBusesCount(route.getAssignedBusesCount() != null ? route.getAssignedBusesCount() : (route.getBuses() != null && !route.getBuses().isEmpty() ? route.getBuses().size() : 5))
+            .studentFare(route.getStudentFare())
+            .adultFare(route.getAdultFare())
+            .seniorFare(route.getSeniorFare())
+            .assignedBusesCount(route.getAssignedBusesCount())
             .createdAt(route.getCreatedAt())
             .updatedAt(route.getUpdatedAt())
             .build();
+     }
+
+    @Transactional
+    public void assignBusesToRoute(Long routeId, List<Long> busIds) {
+        Route route = routeRepository.findById(routeId)
+            .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.NOT_FOUND, "Route not found: " + routeId));
+
+        // Unassign all buses currently assigned to this route
+        List<Bus> currentBuses = busRepository.findByRouteId(routeId);
+        for (Bus bus : currentBuses) {
+            bus.setRoute(null);
+            busRepository.save(bus);
+        }
+
+        // Assign the new set of buses
+        if (busIds != null) {
+            for (Long busId : busIds) {
+                Bus bus = busRepository.findById(busId)
+                    .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Bus not found: " + busId));
+                bus.setRoute(route);
+                busRepository.save(bus);
+            }
+        }
+
+        // Also update the route's assignedBusesCount field in the database
+        route.setAssignedBusesCount(busIds != null ? busIds.size() : 0);
+        routeRepository.save(route);
+
+        auditLogService.log("UPDATE", "Route", routeId, "Assigned buses to route: " + route.getName());
+    }
+
+    @Transactional(readOnly = true)
+    public int getAssignedBusesCount(Long routeId) {
+        return busRepository.findByRouteId(routeId).size();
+    }
+
+    @Transactional(readOnly = true)
+    public int getBusStopsCount(Long routeId) {
+        Route route = routeRepository.findByIdWithStops(routeId)
+            .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.NOT_FOUND, "Route not found: " + routeId));
+        return route.getStops() != null ? route.getStops().size() : 0;
     }
 }

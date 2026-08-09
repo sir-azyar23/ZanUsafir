@@ -21,6 +21,7 @@ com/zanusafiri/dto/DriverResponse$DriverResponseBuilder.class
 com/zanusafiri/dto/RefreshTokenRequest.class
 com/zanusafiri/dto/LogoutRequest$LogoutRequestBuilder.class
 com/zanusafiri/exception/UserNotFoundException.class
+com/zanusafiri/dto/RouteSettingsRequest$RouteSettingsRequestBuilder.class
 com/zanusafiri/entity/RouteStop.class
 com/zanusafiri/dto/GeneratedRouteRequest.class
 com/zanusafiri/dto/DriverResponse.class
@@ -29,6 +30,7 @@ com/zanusafiri/dto/RouteResponse$RouteStopResponse$RouteStopResponseBuilder.clas
 com/zanusafiri/dto/BusStopResponse$BusStopResponseBuilder.class
 com/zanusafiri/controller/AuditLogController.class
 com/zanusafiri/entity/Bus.class
+com/zanusafiri/dto/RouteSettingsRequest.class
 com/zanusafiri/dto/UpdateProfileRequest.class
 com/zanusafiri/dto/UserResponse.class
 com/zanusafiri/repository/TicketRepository.class

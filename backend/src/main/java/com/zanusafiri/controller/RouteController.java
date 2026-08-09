@@ -47,6 +47,16 @@ public class RouteController {
         return ResponseEntity.ok(routeService.updateRoute(id, request));
     }
 
+    @GetMapping("/{id}/settings")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<RouteResponse> getRouteSettings(@PathVariable Long id) {
+        RouteResponse settings = routeService.getRouteSettings(id);
+        if (settings == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(settings);
+    }
+
     @PutMapping("/{id}/settings")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<RouteResponse> updateRouteSettings(@PathVariable Long id,
@@ -86,5 +96,24 @@ public class RouteController {
     public ResponseEntity<RouteResponse> removeStop(@PathVariable Long routeId,
                                                      @PathVariable Long routeStopId) {
         return ResponseEntity.ok(routeService.removeStopFromRoute(routeId, routeStopId));
+    }
+
+    @PostMapping("/{routeId}/assign-buses")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> assignBuses(@PathVariable Long routeId, @RequestBody List<Long> busIds) {
+        routeService.assignBusesToRoute(routeId, busIds);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/{routeId}/buses/count")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Integer> getAssignedBusesCount(@PathVariable Long routeId) {
+        return ResponseEntity.ok(routeService.getAssignedBusesCount(routeId));
+    }
+
+    @GetMapping("/{routeId}/stops/count")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Integer> getBusStopsCount(@PathVariable Long routeId) {
+        return ResponseEntity.ok(routeService.getBusStopsCount(routeId));
     }
 }
