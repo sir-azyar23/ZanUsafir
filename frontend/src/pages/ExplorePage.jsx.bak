@@ -29,10 +29,6 @@ import {
   ContactMail,
   ExpandMore,
   ChevronRight,
-  Close,
-  ArrowBack,
-  Add,
-  Remove,
 } from '@mui/icons-material';
 import { bookTicketPublic, getBusStops, getFares, getRoute, getRoutes } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
@@ -334,6 +330,25 @@ function BookTicketModal({ open, onClose, route, fares, onBooked, initialFromSto
   const [passengerName, setPassengerName] = useState('');
   const [passengerPhone, setPassengerPhone] = useState('');
   const [booking, setBooking] = useState(false);
+  // After-booking state
+  const [bookedTicket, setBookedTicket] = useState(null);
+  const [qrDataUrl, setQrDataUrl] = useState('');
+  const [logoDataUrl, setLogoDataUrl] = useState('');
+  const ticketRef = useRef(null);
+
+  // Pre-load logo as data URL for PDF
+  useEffect(() => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+      setLogoDataUrl(canvas.toDataURL('image/png'));
+    };
+    img.src = zanusafiriLogo;
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -348,6 +363,8 @@ function BookTicketModal({ open, onClose, route, fares, onBooked, initialFromSto
       setTravelDate('');
       setPassengerName('');
       setPassengerPhone('');
+      setBookedTicket(null);
+      setQrDataUrl('');
     });
   }, [open, route, stops, initialFromStopId, initialToStopId]);
 
@@ -364,6 +381,15 @@ function BookTicketModal({ open, onClose, route, fares, onBooked, initialFromSto
   const fmt = (amount, currency) => new Intl.NumberFormat('sw-TZ', {
     style: 'currency', currency: currency || 'TZS', maximumFractionDigits: 0,
   }).format(amount);
+
+  const fmtDate = (iso) => {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+  const fmtDateShort = (iso) => {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
 
   const handleBook = async () => {
     if (!fromStopId || !toStopId) { toast.error('Select boarding and destination stops'); return; }
@@ -382,9 +408,21 @@ function BookTicketModal({ open, onClose, route, fares, onBooked, initialFromSto
       if (travelDate) payload.travelDate = `${travelDate}T08:00:00`;
       const res = await bookTicketPublic(payload);
       const ticket = res.data;
+      // Generate QR Code
+      const qrContent = JSON.stringify({
+        ticketNumber: ticket.ticketNumber,
+        passenger: ticket.passengerName,
+        route: ticket.routeName,
+        from: ticket.fromStopName,
+        to: ticket.toStopName,
+        fare: `${ticket.amount} ${ticket.currency || 'TZS'}`,
+        travelDate: ticket.travelDate || null,
+      });
+      const qrUrl = await QRCode.toDataURL(qrContent, { width: 180, margin: 1, color: { dark: '#1E7D3A', light: '#ffffff' } });
+      setQrDataUrl(qrUrl);
+      setBookedTicket(ticket);
       toast.success(`Ticket ${ticket.ticketNumber} booked successfully!`);
       onBooked?.(ticket);
-      onClose();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to book ticket');
     } finally {
@@ -392,10 +430,131 @@ function BookTicketModal({ open, onClose, route, fares, onBooked, initialFromSto
     }
   };
 
+  const handleDownloadPdf = async () => {
+    if (!bookedTicket || !ticketRef.current) return;
+    try {
+      const element = ticketRef.current;
+      const canvas = await html2canvas(element, {
+        scale: 3, // High-res capture
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+      });
+      const imgData = canvas.toDataURL('image/png');
+      
+      const pdfWidth = 210; // mm
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      const doc = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: [pdfWidth, pdfHeight],
+      });
+      
+      doc.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+      doc.save(`ZanUsafiri-Ticket-${bookedTicket.ticketNumber}.pdf`);
+    } catch (error) {
+      console.error('Failed to generate PDF', error);
+      toast.error('Failed to download PDF ticket. Please try again.');
+    }
+  };
+
   const handleClose = () => {
+    setBookedTicket(null);
+    setQrDataUrl('');
     onClose();
   };
 
+  // ─── Ticket Preview (after successful booking) ───
+  if (bookedTicket) {
+    const t = bookedTicket;
+    const ticketRows = [
+      ['Ticket Number', t.ticketNumber],
+      ['Passenger Name', t.passengerName],
+      ['Phone Number', passengerPhone || '—'],
+      ['Route', t.routeName],
+      ['Boarding Stop', t.fromStopName],
+      ['Destination Stop', t.toStopName],
+      ['Fare', fmt(t.amount, t.currency)],
+      ['Travel Date', t.travelDate ? fmtDateShort(t.travelDate) : '—'],
+      ['Booking Date', fmtDate(t.createdAt)],
+    ];
+    return (
+      <div className="modal-overlay" onClick={handleClose} style={{ justifyContent: 'flex-end', alignItems: 'flex-start', paddingTop: 24, paddingRight: 24 }}>
+        <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 540, width: '100%', padding: 0, overflow: 'hidden', borderRadius: 18 }}>
+          {/* ── Success banner ── */}
+          <div style={{ padding: '18px 24px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid var(--border)' }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(57,181,74,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <CheckCircle style={{ color: '#39B54A', fontSize: 22 }} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-primary)' }}>Booking Confirmed!</div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: 1 }}>Your ticket has been successfully booked.</div>
+            </div>
+          </div>
+
+          {/* ── Ticket Card (Captured for PDF) ── */}
+          <div ref={ticketRef} style={{ background: '#ffffff', padding: '24px 24px 20px', position: 'relative' }}>
+            {/* Top green accent line */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: 'linear-gradient(90deg, #39B54A, #1E7D3A)' }} />
+
+            {/* Logo + branding */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+              <img src={zanusafiriLogo} alt="ZanUsafiri" style={{ width: 38, height: 38, borderRadius: 10, objectFit: 'cover', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }} />
+              <div>
+                <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#1E7D3A' }}>ZanUsafiri</div>
+                <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', lineHeight: 1.3 }}>Route Management System<br />Official Digital Bus Ticket</div>
+              </div>
+            </div>
+
+            {/* Ticket details + QR side by side */}
+            <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+              {/* Left: label-value rows */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <tbody>
+                    {ticketRows.map(([label, value], i) => (
+                      <tr key={label}>
+                        <td style={{
+                          padding: '6px 0', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)',
+                          verticalAlign: 'top', whiteSpace: 'nowrap', width: 120, borderBottom: i < ticketRows.length - 1 ? '1px solid rgba(0,0,0,0.04)' : 'none',
+                        }}>{label}</td>
+                        <td style={{
+                          padding: '6px 0 6px 12px', fontSize: '0.82rem', fontWeight: 700,
+                          color: label === 'Fare' ? '#1E7D3A' : label === 'Ticket Number' ? '#1E7D3A' : 'var(--text-primary)',
+                          verticalAlign: 'top', wordBreak: 'break-word',
+                          borderBottom: i < ticketRows.length - 1 ? '1px solid rgba(0,0,0,0.04)' : 'none',
+                        }}>{value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Right: QR Code */}
+              {qrDataUrl && (
+                <div style={{ flexShrink: 0, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingTop: 4 }}>
+                  <img src={qrDataUrl} alt="QR Code" style={{ width: 120, height: 120, borderRadius: 8, border: '1px solid var(--border)' }} />
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', marginTop: 6, fontWeight: 600 }}>Scan to verify ticket</div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Action buttons ── */}
+          <div style={{ padding: '14px 24px 20px', display: 'flex', gap: 12, borderTop: '1px solid var(--border)' }}>
+            <button className="btn btn-ghost" type="button" onClick={handleClose} style={{ flex: '0 0 auto', padding: '10px 28px' }}>Close</button>
+            <button className="btn btn-primary" type="button" onClick={handleDownloadPdf} style={{
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              background: 'linear-gradient(135deg, #39B54A, #1E7D3A)', borderRadius: 12, padding: '10px 20px',
+            }}>
+              <DownloadIcon style={{ fontSize: 18 }} /> Download Ticket (PDF)
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ─── Booking Form ───
   return (
@@ -483,198 +642,8 @@ function BookTicketModal({ open, onClose, route, fares, onBooked, initialFromSto
   );
 }
 
-/* ── Ticket Preview Overlay Modal ───────────────────────────────── */
-function TicketPreviewModal({ ticket, passengerType, onClose }) {
-  const [qrDataUrl, setQrDataUrl] = useState('');
-  const ticketRef = useRef(null);
-
-  useEffect(() => {
-    if (!ticket) return;
-    const generateQr = async () => {
-      try {
-        const qrContent = JSON.stringify({
-          ticketNumber: ticket.ticketNumber,
-          passenger: ticket.passengerName,
-          route: ticket.routeName,
-          from: ticket.fromStopName || ticket.fromStop || '',
-          to: ticket.toStopName || ticket.toStop || '',
-          fare: ticket.amount ? `${ticket.amount} ${ticket.currency || 'TZS'}` : '—',
-          travelDate: ticket.travelDate || null,
-        });
-        const qrUrl = await QRCode.toDataURL(qrContent, {
-          width: 240,
-          margin: 1,
-          color: { dark: '#000000', light: '#ffffff' }
-        });
-        setQrDataUrl(qrUrl);
-      } catch (err) {
-        console.error('Failed to generate QR', err);
-      }
-    };
-    generateQr();
-  }, [ticket]);
-
-  if (!ticket) return null;
-
-  const getPassengerLabel = (type) => {
-    if (!type) return 'Adult';
-    const cleanType = type.toLowerCase();
-    if (cleanType === 'student') return 'Student';
-    if (cleanType === 'senior') return 'Senior';
-    return 'Adult';
-  };
-
-  const getPassLabel = (type) => {
-    return 'Day Pass';
-  };
-
-  const handleDownloadPdf = async () => {
-    if (!ticket || !ticketRef.current) return;
-    try {
-      const element = ticketRef.current;
-      const canvas = await html2canvas(element, {
-        scale: 4,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-      });
-      const imgData = canvas.toDataURL('image/png');
-      
-      const pdfWidth = 80;
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      const doc = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: [pdfWidth, pdfHeight],
-      });
-      
-      doc.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-      doc.save(`ZANBUS-Ticket-${ticket.ticketNumber}.pdf`);
-      toast.success('Ticket downloaded successfully!');
-    } catch (error) {
-      console.error('Failed to generate PDF', error);
-      toast.error('Failed to download PDF ticket. Please try again.');
-    }
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 10000, display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)' }}>
-      <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 360, width: '90%', padding: 0, overflow: 'hidden', borderRadius: 20, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', border: 'none', background: 'var(--bg-light)' }}>
-        
-        {/* Modal Header */}
-        <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>Ticket Preview</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center' }}>
-            <Close style={{ fontSize: 18 }} />
-          </button>
-        </div>
-
-        {/* Scrollable Container */}
-        <div style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, background: '#f8fafc' }}>
-          
-          {/* Thermal Ticket Container (Captured for PDF) */}
-          <div 
-            ref={ticketRef} 
-            style={{ 
-              width: 290, 
-              background: '#ffffff', 
-              padding: '24px 20px 24px', 
-              boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.05)',
-              fontFamily: "'JetBrains Mono', 'Courier New', Courier, monospace",
-              color: '#000000',
-              display: 'flex',
-              flexDirection: 'column',
-              boxSizing: 'border-box'
-            }}
-          >
-            {/* Top Section */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', lineHeight: '1.2rem' }}>
-                <span>Passenger Type:</span>
-                <span style={{ fontWeight: 'bold' }}>{getPassengerLabel(passengerType)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', lineHeight: '1.2rem' }}>
-                <span>Pass Type:</span>
-                <span style={{ fontWeight: 'bold' }}>{getPassLabel(passengerType)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', lineHeight: '1.2rem' }}>
-                <span>Ref No:</span>
-                <span style={{ fontWeight: 'bold' }}>{ticket.ticketNumber}</span>
-              </div>
-            </div>
-
-            {/* Separator 1 */}
-            <div style={{ letterSpacing: '0.02em', textAlign: 'center', margin: '12px 0', fontSize: '0.78rem', fontWeight: 'bold', color: '#000000' }}>
-              ==========================
-            </div>
-
-            {/* Brand Header */}
-            <div style={{ textAlign: 'center', fontSize: '1.4rem', fontWeight: 900, letterSpacing: '0.15em', padding: '2px 0', color: '#000000' }}>
-              ZAN BUS
-            </div>
-
-            {/* Separator 2 */}
-            <div style={{ letterSpacing: '0.02em', textAlign: 'center', margin: '12px 0', fontSize: '0.78rem', fontWeight: 'bold', color: '#000000' }}>
-              ==========================
-            </div>
-
-            {/* Middle Section */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', lineHeight: '1.2rem' }}>
-                <span>Passenger Type:</span>
-                <span style={{ fontWeight: 'bold' }}>{getPassengerLabel(passengerType)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', lineHeight: '1.2rem' }}>
-                <span>Pass Type:</span>
-                <span style={{ fontWeight: 'bold' }}>{getPassLabel(passengerType)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', lineHeight: '1.2rem' }}>
-                <span>Pass Ref No:</span>
-                <span style={{ fontWeight: 'bold' }}>{ticket.ticketNumber}</span>
-              </div>
-            </div>
-
-            {/* Separator 3 */}
-            <div style={{ letterSpacing: '0.02em', textAlign: 'center', margin: '12px 0', fontSize: '0.78rem', fontWeight: 'bold', color: '#000000' }}>
-              ==========================
-            </div>
-
-            {/* QR Code Container */}
-            {qrDataUrl ? (
-              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '8px 0' }}>
-                <img src={qrDataUrl} alt="QR Code" style={{ width: 180, height: 180, imageRendering: 'pixelated' }} />
-              </div>
-            ) : (
-              <div style={{ width: 180, height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', color: '#888' }}>
-                Generating QR...
-              </div>
-            )}
-
-            {/* Bottom Separator */}
-            <div style={{ letterSpacing: '0.02em', textAlign: 'center', margin: '12px 0 0', fontSize: '0.78rem', fontWeight: 'bold', color: '#000000' }}>
-              --------------------------
-            </div>
-          </div>
-        </div>
-
-        {/* Modal Actions */}
-        <div style={{ padding: '16px 20px', display: 'flex', gap: 12, borderTop: '1px solid var(--border)', background: 'var(--bg-light)' }}>
-          <button className="btn btn-ghost" type="button" onClick={onClose} style={{ flex: '1 0 0', padding: '10px 0', borderRadius: 12 }}>Close</button>
-          <button className="btn btn-primary" type="button" onClick={handleDownloadPdf} style={{
-            flex: '2 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            background: 'linear-gradient(135deg, #39B54A, #1E7D3A)', borderRadius: 12, padding: '10px 0', fontWeight: 800
-          }}>
-            <DownloadIcon style={{ fontSize: 18 }} /> Download Ticket
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ── Inline Ticket History (public/passenger only) ──────────────── */
-function TicketHistorySection({ onSelectTicket }) {
+function TicketHistorySection() {
   const [tickets, setTickets] = useState(loadStoredTickets);
 
   // Refresh when a new ticket is booked on this page
@@ -776,33 +745,13 @@ function TicketHistorySection({ onSelectTicket }) {
                 </div>
               </div>
 
-              <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed var(--border)', paddingTop: 10 }}>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  style={{
-                    fontSize: '0.75rem',
-                    padding: '6px 12px',
-                    height: 'auto',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    border: '1px solid rgba(57,181,74,0.3)',
-                    color: 'var(--primary)',
-                    background: 'rgba(57,181,74,0.04)',
-                    borderRadius: 8,
-                    fontWeight: 700,
-                  }}
-                  onClick={() => onSelectTicket(t)}
-                >
-                  <ConfirmationNumber style={{ fontSize: 14 }} /> View Ticket
-                </button>
-                {t.amount && (
-                  <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+              {t.amount && (
+                <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
+                  <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--primary)' }}>
                     {fmtMoney(t.amount, t.currency)}
                   </span>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -827,18 +776,9 @@ export default function ExplorePage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [bookingOpen, setBookingOpen] = useState(false);
-  const [previewTicket, setPreviewTicket] = useState(null);
-  const [previewPassengerType, setPreviewPassengerType] = useState('adult');
   const [sidebarTab, setSidebarTab] = useState('routes');
   const [ticketPanelOpen, setTicketPanelOpen] = useState(false);
   const [ticketPassengerType, setTicketPassengerType] = useState('adult');
-  // Booking flow: 'search' | 'form' | 'review'
-  const [bookStep, setBookStep] = useState('search');
-  const [formName, setFormName] = useState('');
-  const [formPhone, setFormPhone] = useState('');
-  const [formId, setFormId] = useState('');
-  const [numPassengers, setNumPassengers] = useState(1);
-  const [submitting, setSubmitting] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
   const [nearbyPlaces, setNearbyPlaces] = useState([]);
@@ -895,25 +835,18 @@ export default function ExplorePage() {
     return () => { mounted = false; };
   }, [scanLocation]);
 
-  const routeStops = useMemo(() => orderedStops(selectedRoute), [selectedRoute]);
-
-  // Nearest stop: from selected route's stops if route selected, else all stations
   const nearestStop = useMemo(() => {
-    if (!userLocation) return null;
-    const pool = selectedRoute && routeStops.length > 0
-      ? routeStops.map(s => ({ id: s.stopId, name: s.stopName, latitude: s.latitude, longitude: s.longitude }))
-      : stations;
-    if (pool.length === 0) return null;
+    if (!userLocation || stations.length === 0) return null;
     let closest = null;
     let minD = Infinity;
-    pool.forEach(s => {
+    stations.forEach(s => {
       if (isValidCoordinate(s.latitude, s.longitude)) {
-        const d = haversineDistance(userLocation.lat, userLocation.lng, Number(s.latitude), Number(s.longitude));
+        const d = haversineDistance(userLocation.lat, userLocation.lng, s.latitude, s.longitude);
         if (d < minD) { minD = d; closest = { ...s, distance: d }; }
       }
     });
     return closest;
-  }, [userLocation, selectedRoute, routeStops, stations]);
+  }, [userLocation, stations]);
 
   const routeTotalDistance = useMemo(() => {
     if (!routeLine || routeLine.length < 2) return 0;
@@ -966,6 +899,8 @@ export default function ExplorePage() {
       toast.error('Failed to load route details');
     }
   }, []);
+
+  const routeStops = useMemo(() => orderedStops(selectedRoute), [selectedRoute]);
 
   // When route changes, keep passenger type as-is (no stop defaults needed)
   const routeColor = useMemo(() => {
@@ -1034,11 +969,12 @@ export default function ExplorePage() {
 
   return (
     <div className="ep-wrapper">
+      {/* ── Page Header ── */}
       <div className="ep-header">
         <div className="ep-header-left">
           <h2 className="ep-title">
             <MapIcon style={{ color: '#22C55E' }} />
-            Explore Routes &amp; Stations
+            Explore Routes & Stations
           </h2>
           <p className="ep-subtitle">
             View all stations on the map, explore routes through their stops, and request tickets using administrator-configured fares.
@@ -1053,15 +989,15 @@ export default function ExplorePage() {
               <div className="ep-top-fares-list">
                 <div className="ep-top-fare-item student">
                   <span className="ep-fare-label">Student</span>
-                  <strong className="ep-fare-val">{selectedRoute.studentFare != null ? Number(selectedRoute.studentFare).toLocaleString() : '—'} TZS</strong>
+                  <strong className="ep-fare-val">{selectedRoute.studentFare != null ? Number(selectedRoute.studentFare).toLocaleString() : '350'} TZS</strong>
                 </div>
                 <div className="ep-top-fare-item adult">
                   <span className="ep-fare-label">Adult</span>
-                  <strong className="ep-fare-val">{selectedRoute.adultFare != null ? Number(selectedRoute.adultFare).toLocaleString() : '—'} TZS</strong>
+                  <strong className="ep-fare-val">{selectedRoute.adultFare != null ? Number(selectedRoute.adultFare).toLocaleString() : '700'} TZS</strong>
                 </div>
                 <div className="ep-top-fare-item senior">
                   <span className="ep-fare-label">Senior 70+</span>
-                  <strong className="ep-fare-val">{selectedRoute.seniorFare != null ? Number(selectedRoute.seniorFare).toLocaleString() : '—'} TZS</strong>
+                  <strong className="ep-fare-val">{selectedRoute.seniorFare != null ? Number(selectedRoute.seniorFare).toLocaleString() : '350'} TZS</strong>
                 </div>
               </div>
             </div>
@@ -1071,25 +1007,15 @@ export default function ExplorePage() {
                <div className="ep-loc-icon"><Place style={{ color: '#39B54A', fontSize: 20 }} /></div>
                <div>
                  <div className="ep-loc-label">You are here</div>
-                 <div className="ep-loc-val">{userLocation.name}</div>
+                 <div className="ep-loc-val">{userLocation.name} <ExpandMore style={{ fontSize: 14 }}/></div>
                  <div className="ep-loc-acc">Accurate to {Math.round(userLocation.accuracy)}m</div>
-               </div>
-            </div>
-          )}
-          {nearestStop && (
-            <div className="ep-top-location ep-top-nearest">
-               <div className="ep-loc-icon ep-loc-icon-bus"><DirectionsBus style={{ color: '#39B54A', fontSize: 20 }} /></div>
-               <div>
-                 <div className="ep-loc-label">Nearest Bus Stop</div>
-                 <div className="ep-loc-val ep-loc-val-green">{nearestStop.name}</div>
-                 <div className="ep-loc-acc">{Math.round(nearestStop.distance * 1000)} m (≈ {Math.round(nearestStop.distance / 0.083 * 60)} min walk)</div>
                </div>
             </div>
           )}
         </div>
       </div>
 
-      <div className={`explore-layout${ticketPanelOpen ? ' ticket-panel-open' : ''}`}>
+      <div className="explore-layout">
         <aside className="ep-sidebar">
           {/* Main sidebar contents wrapper to allow layout flex and Back Home button placement */}
           <div className="ep-sidebar-main">
@@ -1226,217 +1152,6 @@ export default function ExplorePage() {
           </div>
         </aside>
 
-        {/* ── Inline Ticket Panel (slide-in between sidebar and map) ── */}
-        {ticketPanelOpen && (
-          <div className="ep-ticket-panel">
-            {/* Panel Header */}
-            <div className="ep-tp-header">
-              {bookStep !== 'search' && (
-                <button className="ep-tp-back" onClick={() => setBookStep(bookStep === 'review' ? 'form' : 'search')}>
-                  <ArrowBack style={{ fontSize: 18 }} />
-                </button>
-              )}
-              <span className="ep-tp-title">
-                {bookStep === 'search' ? '🎫 Ticket Search' : bookStep === 'form' ? '📋 Book Ticket' : '✅ Booking Review'}
-              </span>
-              <button className="ep-tp-close" onClick={() => { setTicketPanelOpen(false); setBookStep('search'); }}>
-                <Close style={{ fontSize: 18 }} />
-              </button>
-            </div>
-
-            {/* Step indicators */}
-            <div className="ep-tp-steps">
-              {['search','form','review'].map((s, i) => (
-                <div key={s} className={`ep-tp-step ${bookStep === s ? 'active' : ['search','form','review'].indexOf(bookStep) > i ? 'done' : ''}`}>
-                  <span className="ep-tp-step-dot">{i + 1}</span>
-                  <span className="ep-tp-step-label">{['Search','Book','Review'][i]}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="ep-tp-body">
-              {/* ── STEP 1: Ticket Search ── */}
-              {bookStep === 'search' && (() => {
-                const activeFare = PASSENGER_TYPES.find(p => p.key === ticketPassengerType);
-                const fareAmt = selectedRoute && activeFare ? selectedRoute[activeFare.fareField] : null;
-                const fmtN = n => n != null ? new Intl.NumberFormat('sw-TZ', { maximumFractionDigits: 0 }).format(Number(n)) : null;
-                return (
-                  <div className="ep-tp-section">
-                    <label className="ep-tp-label">1. Select Route</label>
-                    <select className="form-input" style={{ fontWeight: 700, marginBottom: 16 }}
-                      value={selectedRoute?.id ? String(selectedRoute.id) : ''}
-                      onChange={e => { const r = routes.find(x => String(x.id) === e.target.value); if (r) selectRoute(r); }}>
-                      <option value="">Choose a route…</option>
-                      {routes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                    </select>
-
-                    <label className="ep-tp-label">2. Passenger Type</label>
-                    <div className="ep-tp-pax-grid">
-                      {PASSENGER_TYPES.map(({ key, label, icon: Icon, fareField }) => {
-                        const isAct = ticketPassengerType === key;
-                        const rf = selectedRoute ? selectedRoute[fareField] : null;
-                        return (
-                          <button key={key} type="button" onClick={() => setTicketPassengerType(key)}
-                            className={`ep-tp-pax-card${isAct ? ' active' : ''}`}>
-                            <Icon style={{ fontSize: 24 }} />
-                            <span className="ep-tp-pax-label">{label}</span>
-                            {rf != null && <span className="ep-tp-pax-fare">{fmtN(rf)} TZS</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div className={`ep-tp-fare-box${fareAmt != null ? ' has-fare' : ''}`}>
-                      <div className="ep-tp-fare-label">TICKET FARE</div>
-                      {fareAmt != null ? (
-                        <>
-                          <div className="ep-tp-fare-amount">TSh {fmtN(fareAmt)}</div>
-                          <div className="ep-tp-fare-sub">Route: {selectedRoute?.name} · Passenger: {activeFare?.label?.toUpperCase()}</div>
-                        </>
-                      ) : (
-                        <div className="ep-tp-fare-empty">{selectedRoute ? 'Select a passenger type above.' : 'Select a route to see fare.'}</div>
-                      )}
-                    </div>
-
-                    <button className="ep-tp-btn-primary" disabled={!selectedRoute || !ticketPassengerType}
-                      onClick={() => { setFormName(''); setFormPhone(''); setFormId(''); setNumPassengers(1); setBookStep('form'); }}>
-                      <ConfirmationNumber style={{ fontSize: 18 }} /> Request Ticket
-                    </button>
-
-                    <div className="ep-tp-info-note">
-                      <InfoIcon style={{ fontSize: 15, color: '#36A9E1' }} />
-                      <span>Fares are set per route and based on passenger type. They do not change based on bus stops.</span>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* ── STEP 2: Book Ticket ── */}
-              {bookStep === 'form' && (() => {
-                const activeFare = PASSENGER_TYPES.find(p => p.key === ticketPassengerType);
-                const fareAmt = selectedRoute && activeFare ? selectedRoute[activeFare.fareField] : null;
-                const fmtN = n => n != null ? new Intl.NumberFormat('sw-TZ', { maximumFractionDigits: 0 }).format(Number(n)) : '—';
-                const total = fareAmt != null ? Number(fareAmt) * numPassengers : null;
-                return (
-                  <div className="ep-tp-section">
-                    {/* Selected ticket summary */}
-                    <div className="ep-tp-summary-box">
-                      <div className="ep-tp-summary-title">Selected Ticket</div>
-                      <div className="ep-tp-summary-row"><span>Route</span><strong>{selectedRoute?.name}</strong></div>
-                      <div className="ep-tp-summary-row"><span>Passenger Type</span><strong>{activeFare?.label?.toUpperCase()}</strong></div>
-                      <div className="ep-tp-summary-row"><span>Ticket Fare</span><strong style={{ color: '#1E7D3A' }}>TSh {fmtN(fareAmt)}</strong></div>
-                    </div>
-
-                    <label className="ep-tp-label" style={{ marginTop: 14 }}>Book Ticket</label>
-
-                    <div className="ep-tp-field">
-                      <label className="form-label">1. Full Name *</label>
-                      <input className="form-input" value={formName} onChange={e => setFormName(e.target.value)} placeholder="Enter your full name" />
-                    </div>
-                    <div className="ep-tp-field">
-                      <label className="form-label">2. Phone Number</label>
-                      <input className="form-input" value={formPhone} onChange={e => setFormPhone(e.target.value)} placeholder="Enter your phone number" />
-                    </div>
-                    <div className="ep-tp-field">
-                      <label className="form-label">3. ID Number (Optional)</label>
-                      <input className="form-input" value={formId} onChange={e => setFormId(e.target.value)} placeholder="Enter ID number (optional)" />
-                    </div>
-                    <div className="ep-tp-field">
-                      <label className="form-label">4. Number of Passengers</label>
-                      <div className="ep-tp-stepper">
-                        <button type="button" className="ep-tp-stepper-btn" onClick={() => setNumPassengers(p => Math.max(1, p - 1))}><Remove style={{ fontSize: 16 }} /></button>
-                        <span className="ep-tp-stepper-val">{numPassengers}</span>
-                        <button type="button" className="ep-tp-stepper-btn" onClick={() => setNumPassengers(p => Math.min(10, p + 1))}><Add style={{ fontSize: 16 }} /></button>
-                      </div>
-                    </div>
-
-                    {total != null && (
-                      <div className="ep-tp-total-box">
-                        <span>Total Amount</span>
-                        <strong>TSh {fmtN(total)}</strong>
-                      </div>
-                    )}
-
-                    <button className="ep-tp-btn-primary" disabled={!formName.trim()}
-                      onClick={() => setBookStep('review')}>
-                      Continue to Review
-                    </button>
-                  </div>
-                );
-              })()}
-
-              {/* ── STEP 3: Booking Review ── */}
-              {bookStep === 'review' && (() => {
-                const activeFare = PASSENGER_TYPES.find(p => p.key === ticketPassengerType);
-                const fareAmt = selectedRoute && activeFare ? selectedRoute[activeFare.fareField] : null;
-                const fmtN = n => n != null ? new Intl.NumberFormat('sw-TZ', { maximumFractionDigits: 0 }).format(Number(n)) : '—';
-                const total = fareAmt != null ? Number(fareAmt) * numPassengers : null;
-                const handleSubmit = async () => {
-                  if (!selectedRoute || !ticketPassengerType || !formName.trim()) { toast.error('Missing required info'); return; }
-                  setSubmitting(true);
-                  try {
-                    const stops = orderedStops(selectedRoute);
-                    const payload = {
-                      routeId: selectedRoute.id,
-                      fromStopId: stops[0]?.stopId || stops[0]?.id,
-                      toStopId: stops[stops.length - 1]?.stopId || stops[stops.length - 1]?.id,
-                      passengerName: formName.trim(),
-                      passengerPhone: formPhone.trim() || null,
-                      passengerType: ticketPassengerType.toUpperCase(),
-                    };
-                    const res = await bookTicketPublic(payload);
-                    const t = res.data;
-                    if (showHistory && t.ticketNumber) {
-                      const entry = {
-                        ticketNumber: t.ticketNumber,
-                        routeName: selectedRoute.name,
-                        fromStop: t.fromStopName || '',
-                        toStop: t.toStopName || '',
-                        amount: t.amount ?? fareAmt,
-                        currency: 'TZS',
-                        bookedAt: t.createdAt || new Date().toISOString(),
-                        passengerType: ticketPassengerType
-                      };
-                      saveStoredTickets([entry, ...loadStoredTickets().filter(x => x.ticketNumber !== entry.ticketNumber)]);
-                      window.dispatchEvent(new CustomEvent('zanusafiri:ticket_booked'));
-                    }
-                    setPreviewTicket(t);
-                    setPreviewPassengerType(ticketPassengerType);
-                    setTicketPanelOpen(false);
-                    setBookStep('search');
-                  } catch (err) {
-                    toast.error(err.response?.data?.message || 'Booking failed');
-                  } finally { setSubmitting(false); }
-                };
-                return (
-                  <div className="ep-tp-section">
-                    <div className="ep-tp-review-title">Booking Review</div>
-                    <div className="ep-tp-review-card">
-                      <div className="ep-tp-review-row"><span>Route</span><strong>{selectedRoute?.name}</strong></div>
-                      <div className="ep-tp-review-row"><span>Passenger Type</span><strong>{activeFare?.label?.toUpperCase()}</strong></div>
-                      <div className="ep-tp-review-row"><span>Ticket Fare</span><strong style={{ color: '#1E7D3A' }}>TSh {fmtN(fareAmt)}</strong></div>
-                      <div className="ep-tp-review-row"><span>No. of Passengers</span><strong>{numPassengers}</strong></div>
-                      <div className="ep-tp-review-row ep-tp-review-total"><span>Total Amount</span><strong>TSh {fmtN(total)}</strong></div>
-                    </div>
-                    <div className="ep-tp-review-title" style={{ marginTop: 14 }}>Passenger Details</div>
-                    <div className="ep-tp-review-card">
-                      <div className="ep-tp-review-row"><span>Full Name</span><strong>{formName}</strong></div>
-                      <div className="ep-tp-review-row"><span>Phone Number</span><strong>{formPhone || 'N/A'}</strong></div>
-                      <div className="ep-tp-review-row"><span>ID Number</span><strong>{formId || 'N/A'}</strong></div>
-                    </div>
-                    <div className="ep-tp-review-actions">
-                      <button className="ep-tp-btn-ghost" onClick={() => setBookStep('form')}>Cancel</button>
-                      <button className="ep-tp-btn-primary" style={{ flex: 1 }} onClick={handleSubmit} disabled={submitting}>
-                        {submitting ? 'Processing…' : 'Proceed to Payment'}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-        )}
-
         <div className="ep-map-wrap">
           <MapContainer center={DEFAULT_CENTER} zoom={11} style={{ height: '100%', width: '100%', minHeight: 520 }}>
             <TileLayer
@@ -1450,10 +1165,17 @@ export default function ExplorePage() {
               const pos = [Number(station.latitude), Number(station.longitude)];
               const highlighted = highlightStationId === station.id;
               return (
-                <Marker key={station.id} position={pos}
+                <Marker
+                  key={station.id}
+                  position={pos}
                   icon={highlighted ? stopIcon('S', 'var(--primary-dark)', 30) : stationIcon}
-                  eventHandlers={{ click: () => setHighlightStationId(station.id) }}>
-                  <Popup><strong>{station.name}</strong><br />{station.address || 'Station'}</Popup>
+                  eventHandlers={{ click: () => setHighlightStationId(station.id) }}
+                >
+                  <Popup>
+                    <strong>{station.name}</strong><br />
+                    {station.address || 'Station'}<br />
+                    <small>{pos[0].toFixed(4)}, {pos[1].toFixed(4)}</small>
+                  </Popup>
                 </Marker>
               );
             })}
@@ -1462,9 +1184,14 @@ export default function ExplorePage() {
               if (!isValidCoordinate(stop.latitude, stop.longitude)) return null;
               const pos = [Number(stop.latitude), Number(stop.longitude)];
               const order = stop.stopOrder ?? index + 1;
+              const stopId = String(stop.stopId || stop.id || '');
+              const isHighlighted = highlightedStopIds.includes(stopId);
               return (
-                <Marker key={stop.id || stop.stopId} position={pos} icon={stopIcon(order, routeColor)}>
-                  <Popup><strong>Stop {order}: {stop.stopName}</strong><br />{stop.address || selectedRoute.name}</Popup>
+                <Marker key={stop.id || stop.stopId} position={pos} icon={stopIcon(order, isHighlighted ? '#00C2FF' : routeColor)}>
+                  <Popup>
+                    <strong>Stop {order}: {stop.stopName}</strong><br />
+                    {stop.address || selectedRoute.name}
+                  </Popup>
                 </Marker>
               );
             })}
@@ -1472,15 +1199,38 @@ export default function ExplorePage() {
             {routeLine.length >= 2 && (
               <Polyline positions={routeLine} pathOptions={{ color: routeColor, weight: 5, opacity: 0.85 }} />
             )}
-
+            
             {userLocation && (
               <Marker position={[userLocation.lat, userLocation.lng]} icon={userIcon}>
-                <Popup>You are here<br />{userLocation.name}</Popup>
+                 <Popup>You are here<br/>{userLocation.name}</Popup>
               </Marker>
             )}
           </MapContainer>
 
-          {/* Route Summary */}
+          {/* Ticket Search panel — floats inside the map, below the Leaflet zoom controls */}
+          <TicketFloatingPanel
+            routes={routes}
+            selectedRoute={selectedRoute}
+            passengerType={ticketPassengerType}
+            onPassengerTypeChange={setTicketPassengerType}
+            onSelectRoute={selectRoute}
+            onRequestTicket={() => {
+              if (!selectedRoute) {
+                toast.error('Please choose a route first');
+                return;
+              }
+              if (!ticketPassengerType) {
+                toast.error('Please select a passenger type');
+                return;
+              }
+              setBookingOpen(true);
+            }}
+            open={ticketPanelOpen}
+            onToggle={() => setTicketPanelOpen(prev => !prev)}
+            isMobile={isMobileView}
+          />
+
+          {/* Route Summary (bottom) */}
           {selectedRoute && (
             <div className="ep-route-summary-card">
                <div className="ep-rs-header"><RouteIcon style={{ fontSize: 16 }}/> Route Summary</div>
@@ -1505,6 +1255,61 @@ export default function ExplorePage() {
             </div>
           )}
 
+          {/* Nearby Info (Right side) */}
+          {userLocation && (
+            <div className="ep-nearby-info-card">
+               <div className="ep-ni-header"><Place style={{ fontSize: 16, color: '#39B54A' }}/> Your Location & Nearby Info</div>
+               
+               <div className="ep-ni-section">
+                  <div className="ep-ni-youarehere">
+                     <div className="ep-ni-icon"><Place style={{ color: '#39B54A' }}/></div>
+                     <div>
+                        <div className="ep-ni-label">You are here</div>
+                        <div className="ep-ni-val">{userLocation.name}</div>
+                        <div className="ep-ni-acc">Accurate to {Math.round(userLocation.accuracy)}m</div>
+                     </div>
+                  </div>
+               </div>
+
+               {nearestStop && (
+                 <div className="ep-ni-section ep-ni-nearest">
+                   <div className="ep-ni-dist-row">
+                      <RouteIcon style={{ fontSize: 18, color: '#39B54A' }}/>
+                      <div>
+                        <div className="ep-ni-label">Distance to next stop</div>
+                        <div className="ep-ni-val-small">{nearestStop.distance.toFixed(1)} km (≈ {Math.round(nearestStop.distance / 0.05)} min walk)</div>
+                      </div>
+                   </div>
+                   <div className="ep-ni-dist-row" style={{ marginTop: '8px' }}>
+                      <DirectionsBus style={{ fontSize: 18, color: '#39B54A' }}/>
+                      <div>
+                        <div className="ep-ni-label">Next stop</div>
+                        <div className="ep-ni-val-primary">{nearestStop.name}</div>
+                      </div>
+                   </div>
+                 </div>
+               )}
+
+               <div className="ep-ni-section">
+                  <div className="ep-ni-title">Nearby places</div>
+                  {nearbyPlaces.length > 0 ? nearbyPlaces.map((p, i) => (
+                    <div key={i} className="ep-ni-place">
+                       <div className="ep-ni-place-name">
+                         <span className="ep-ni-place-icon" style={{ fontSize: '1rem' }}>
+                            {p.type === 'marketplace' ? '🛒' : p.type === 'park' ? '🌳' : p.type === 'fuel' ? '⛽' : '📍'}
+                         </span>
+                         {p.name}
+                       </div>
+                       <div className="ep-ni-place-dist">{p.distance} m</div>
+                    </div>
+                  )) : (
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>No nearby places found</div>
+                  )}
+                  <button type="button" className="ep-ni-viewall">View all nearby places <ChevronRight style={{ fontSize: 16 }}/></button>
+               </div>
+            </div>
+          )}
+          
           {/* Map Legend */}
           <div className="ep-map-legend">
              <div className="ep-legend-item"><span className="ep-legend-dot user"></span> You are here</div>
@@ -1514,32 +1319,52 @@ export default function ExplorePage() {
         </div>
       </div>
 
-      {showHistory && (
-        <TicketHistorySection
-          onSelectTicket={(t) => {
-            setPreviewTicket(t);
-            setPreviewPassengerType(t.passengerType || 'adult');
-          }}
-        />
-      )}
+      <BookTicketModal
+        open={bookingOpen}
+        onClose={() => setBookingOpen(false)}
+        route={selectedRoute}
+        fares={fares.filter(f => f.routeId === selectedRoute?.id)}
+        initialFromStopId={null}
+        initialToStopId={null}
+        onBooked={(bookedTicket) => {
+          if (showHistory && bookedTicket?.ticketNumber) {
+            const entry = {
+              ticketNumber: bookedTicket.ticketNumber,
+              routeName: selectedRoute?.name || '',
+              fromStop: bookedTicket.fromStopName || '',
+              toStop: bookedTicket.toStopName || '',
+              amount: bookedTicket.amount ?? null,
+              currency: bookedTicket.currency || 'TZS',
+              bookedAt: bookedTicket.createdAt || new Date().toISOString(),
+            };
+            const updated = [entry, ...loadStoredTickets().filter(t => t.ticketNumber !== entry.ticketNumber)];
+            saveStoredTickets(updated);
+            // force TicketHistorySection to reload from localStorage
+            window.dispatchEvent(new CustomEvent('zanusafiri:ticket_booked'));
+          }
+        }}
+      />
 
-      {previewTicket && (
-        <TicketPreviewModal
-          ticket={previewTicket}
-          passengerType={previewPassengerType}
-          onClose={() => setPreviewTicket(null)}
-        />
-      )}
+      {showHistory && <TicketHistorySection />}
 
-      {/* Footer Nav */}
+      {/* ── Bottom Footer Navigation ── */}
       <nav className="ep-footer-nav">
-        <a href="/explore" className="ep-footer-link ep-footer-active"><ExploreIcon style={{ fontSize: 18 }} /> Explore</a>
-        <button type="button" className="ep-footer-link" onClick={() => setSidebarTab('routes')}><RouteIcon style={{ fontSize: 18 }} /> Routes</button>
-        <button type="button" className="ep-footer-link" onClick={() => setSidebarTab('stations')}><Place style={{ fontSize: 18 }} /> Stations</button>
-        <a href="/" className="ep-footer-link"><HomeIcon style={{ fontSize: 18 }} /> About</a>
-        <a href="/" className="ep-footer-link"><ContactMail style={{ fontSize: 18 }} /> Contact</a>
+        <a href="/explore" className="ep-footer-link ep-footer-active">
+          <ExploreIcon style={{ fontSize: 18 }} /> Explore
+        </a>
+        <button type="button" className="ep-footer-link" onClick={() => setSidebarTab('routes')}>
+          <RouteIcon style={{ fontSize: 18 }} /> Routes
+        </button>
+        <button type="button" className="ep-footer-link" onClick={() => setSidebarTab('stations')}>
+          <Place style={{ fontSize: 18 }} /> Stations
+        </button>
+        <a href="/" className="ep-footer-link">
+          <HomeIcon style={{ fontSize: 18 }} /> About Us
+        </a>
+        <a href="/" className="ep-footer-link">
+          <ContactMail style={{ fontSize: 18 }} /> Contact
+        </a>
       </nav>
     </div>
   );
 }
-

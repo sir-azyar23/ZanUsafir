@@ -318,6 +318,6 @@ public class RouteService {
         Route route = routeRepository.findByIdWithStops(routeId)
             .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
                 org.springframework.http.HttpStatus.NOT_FOUND, "Route not found: " + routeId));
-        return route.getStops() != null ? route.getStops().size() : 0;
+        return route.getRouteStops() != null ? route.getRouteStops().size() : 0;
     }
 }
