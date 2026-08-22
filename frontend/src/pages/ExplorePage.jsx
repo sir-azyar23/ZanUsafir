@@ -270,6 +270,287 @@ function QrVerifyModal({ open, onClose }) {
   );
 }
 
+/* ── Payment Security Verification Modal (Math CAPTCHA) ── */
+function PaymentVerificationModal({
+  open,
+  onClose,
+  paymentProvider,
+  paymentMethod,
+  paymentPhone,
+  passengerPhone,
+  amount,
+  captchaNum1,
+  captchaNum2,
+  captchaAnswer,
+  setCaptchaAnswer,
+  captchaError,
+  loading,
+  success,
+  onVerify,
+  onRefreshCaptcha,
+}) {
+  if (!open) return null;
+
+  const maskPhone = (phone) => {
+    if (!phone) return '';
+    const clean = phone.replace(/\D/g, '');
+    let localNum = clean;
+    if (clean.startsWith('255') && clean.length > 9) {
+      localNum = clean.substring(3);
+    } else if (clean.startsWith('0') && clean.length > 9) {
+      localNum = clean.substring(1);
+    }
+    if (localNum.length >= 6) {
+      const start = localNum.substring(0, 3);
+      const end = localNum.substring(localNum.length - 3);
+      return `+255 ${start}***${end}`;
+    }
+    return `+255 ${localNum}`;
+  };
+
+  const phoneToDisplay = paymentMethod === 'MOBILE_MONEY' ? paymentPhone : passengerPhone;
+
+  return (
+    <div className="modal-overlay" style={{ zIndex: 10000 }}>
+      <div className="modal-box" style={{ maxWidth: 440, padding: '24px' }}>
+        
+        {!loading && !success && (
+          <>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <h3 style={{ margin: 0, fontWeight: 800, fontSize: '1.25rem', color: '#0b3d24', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Shield style={{ color: 'var(--primary)' }} /> Security Verification
+                </h3>
+                <span style={{
+                  background: '#FEF3C7',
+                  color: '#92400E',
+                  fontSize: '0.68rem',
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: 4,
+                  width: 'fit-content',
+                  letterSpacing: '0.05em',
+                  marginTop: 4
+                }}>
+                  DEMO PAYMENT
+                </span>
+              </div>
+              <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}>
+                <Close />
+              </button>
+            </div>
+
+            <div style={{
+              background: '#f4f8f5',
+              border: '1px solid #e3ece6',
+              borderRadius: 12,
+              padding: 12,
+              marginBottom: 16,
+              fontSize: '0.82rem',
+              color: '#475569',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Provider:</span>
+                <strong style={{ color: '#0b3d24' }}>{paymentProvider}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Amount:</span>
+                <strong style={{ color: '#0b3d24' }}>TSh {amount}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Phone:</span>
+                <strong style={{ color: '#0b3d24' }}>{maskPhone(phoneToDisplay)}</strong>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  background: 'rgba(18, 161, 80, 0.1)',
+                  borderRadius: 10,
+                  width: 36,
+                  height: 36,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Shield style={{ color: 'var(--primary)', fontSize: 20 }} />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: '1.25rem', fontWeight: 900, color: '#0b3d24', letterSpacing: '0.05em' }}>
+                    {captchaNum1} + {captchaNum2} = ?
+                  </span>
+                  <button type="button" onClick={onRefreshCaptcha} style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: 2
+                  }}>
+                    <Refresh style={{ fontSize: 18 }} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="ep-tp-field">
+                <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem', color: '#475569', marginBottom: 4 }}>
+                  Enter your answer
+                </label>
+                <input
+                  className="form-input"
+                  style={{
+                    border: captchaError ? '2px solid #EF4444' : '1.5px solid #CBD5E1',
+                    borderRadius: 10,
+                    padding: '10px 12px',
+                    fontSize: '1rem',
+                    fontWeight: 700,
+                    textAlign: 'center'
+                  }}
+                  type="text"
+                  value={captchaAnswer}
+                  onChange={(e) => setCaptchaAnswer(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="Enter answer"
+                  disabled={loading}
+                />
+                {captchaError ? (
+                  <span style={{ fontSize: '0.72rem', color: '#EF4444', fontWeight: 700 }}>
+                    {captchaError}
+                  </span>
+                ) : (
+                  <span style={{ fontSize: '0.72rem', color: '#64748B' }}>
+                    Solve the question to continue.
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div style={{
+              background: 'rgba(245, 158, 11, 0.08)',
+              border: '1px solid rgba(245, 158, 11, 0.3)',
+              borderRadius: 10,
+              padding: 10,
+              marginBottom: 20,
+              fontSize: '0.75rem',
+              color: '#B45309',
+              lineHeight: 1.4,
+              fontWeight: 600,
+              textAlign: 'left'
+            }}>
+              <strong>Demo Notice:</strong> This is a simulated payment. No real money will be deducted.
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={onClose}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: 10,
+                  border: '1.5px solid #CBD5E1',
+                  background: '#FFF',
+                  color: '#64748B',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={onVerify}
+                disabled={!captchaAnswer}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: 10,
+                  border: 'none',
+                  background: 'var(--primary)',
+                  color: '#FFF',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  opacity: captchaAnswer ? 1 : 0.5
+                }}
+              >
+                Verify & Continue
+              </button>
+            </div>
+          </>
+        )}
+
+        {loading && (
+          <div style={{ textAlign: 'center', padding: '24px 0' }}>
+            <span
+              style={{
+                width: 48,
+                height: 48,
+                border: '4px solid var(--primary)',
+                borderTopColor: 'transparent',
+                borderRadius: '50%',
+                animation: 'spin 0.8s linear infinite',
+                display: 'inline-block',
+                marginBottom: 16
+              }}
+            />
+            <h3 style={{ margin: '0 0 8px 0', fontWeight: 800, color: '#0b3d24' }}>
+              Processing Demo Payment
+            </h3>
+            <p style={{ margin: 0, fontSize: '0.88rem', color: '#64748B' }}>
+              Please wait while we verify your request…
+            </p>
+          </div>
+        )}
+
+        {success && (
+          <div style={{ textAlign: 'center', padding: '16px 0' }}>
+            <div style={{
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              background: 'rgba(18, 161, 80, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px auto'
+            }}>
+              <CheckCircle style={{ color: 'var(--primary)', fontSize: 36 }} />
+            </div>
+            <h3 style={{ margin: '0 0 8px 0', fontWeight: 800, color: '#0b3d24', fontSize: '1.25rem' }}>
+              Demo Payment Successful
+            </h3>
+            <p style={{ margin: '0 0 24px 0', fontSize: '0.88rem', color: '#64748B' }}>
+              Your ticket has been generated successfully.
+            </p>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: 10,
+                border: 'none',
+                background: 'var(--primary)',
+                color: '#FFF',
+                fontWeight: 800,
+                fontSize: '0.9rem',
+                cursor: 'pointer'
+              }}
+            >
+              View Ticket
+            </button>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
 /* ── Digital Thermal Ticket Component ── */
 function ThermalTicketReceipt({ ticket, onDownload, onPrint, onClose }) {
   const ticketRef = useRef(null);
@@ -387,6 +668,12 @@ function ThermalTicketReceipt({ ticket, onDownload, onPrint, onClose }) {
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span>Txn Ref:</span>
             <span style={{ fontSize: '0.7rem' }}>{ticket.transactionReference}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>Payment Status:</span>
+            <strong style={{ color: ticket.paymentStatus === 'DEMO_PAID' || ticket.paymentStatus === 'SIMULATED' ? '#D97706' : '#12a150' }}>
+              {ticket.paymentStatus || 'PAID'}
+            </strong>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: '0.9rem' }}>
             <strong>FARE PAID:</strong>
@@ -631,6 +918,15 @@ export default function ExplorePage() {
   // Conductor verify modal
   const [verifyModalOpen, setVerifyModalOpen] = useState(false);
 
+  // Payment security verification modal states
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+  const [captchaNum1, setCaptchaNum1] = useState(0);
+  const [captchaNum2, setCaptchaNum2] = useState(0);
+  const [captchaAnswer, setCaptchaAnswer] = useState('');
+  const [captchaError, setCaptchaError] = useState('');
+  const [verificationLoading, setVerificationLoading] = useState(false);
+  const [verificationSuccess, setVerificationSuccess] = useState(false);
+
   const [isMobileView, setIsMobileView] = useState(false);
   const [sidebarTab, setSidebarTab] = useState('routes');
   const [userLocation, setUserLocation] = useState(null);
@@ -872,7 +1168,7 @@ export default function ExplorePage() {
   };
 
   // Step 4 Real Payment Processing Simulation & Server Call
-  const handleProcessPayment = async () => {
+  const handleStartPaymentVerification = () => {
     if (!selectedRoute || !activeFareInfo || activeFareInfo.amount == null) {
       toast.error('Invalid fare selection');
       return;
@@ -890,25 +1186,42 @@ export default function ExplorePage() {
       }
     }
 
-    setPaymentSimulationState('initiating');
-    setSimulationMessage(`Initiating ${paymentProvider} transaction...`);
+    // Generate random captcha question
+    generateNewCaptcha();
+    setCaptchaAnswer('');
+    setCaptchaError('');
+    setVerificationLoading(false);
+    setVerificationSuccess(false);
+    setIsVerificationModalOpen(true);
+  };
+
+  const generateNewCaptcha = () => {
+    setCaptchaNum1(Math.floor(Math.random() * 9) + 1);
+    setCaptchaNum2(Math.floor(Math.random() * 9) + 1);
+  };
+
+  const handleVerifyCaptcha = async () => {
+    const correctAnswer = captchaNum1 + captchaNum2;
+    if (parseInt(captchaAnswer, 10) !== correctAnswer) {
+      setCaptchaError('Incorrect answer. Please try again.');
+      setCaptchaAnswer('');
+      generateNewCaptcha();
+      return;
+    }
+
+    setCaptchaError('');
+    setVerificationLoading(true);
 
     try {
-      // Step 1: Simulated network delay for USSD prompt / Card auth
-      await new Promise((r) => setTimeout(r, 1200));
+      // 1. Wait approximately two seconds
+      await new Promise((r) => setTimeout(r, 2000));
 
-      if (paymentMethod === 'MOBILE_MONEY') {
-        setPaymentSimulationState('waiting_ussd');
-        setSimulationMessage(`USSD prompt sent to +255 ${paymentPhone}. Waiting for PIN approval...`);
-        await new Promise((r) => setTimeout(r, 2000));
-      } else {
-        setPaymentSimulationState('processing');
-        setSimulationMessage('Verifying 3D Secure card payment with bank...');
-        await new Promise((r) => setTimeout(r, 1800));
-      }
+      // 2. Generate unique transaction reference
+      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      const randomId = Math.floor(1000 + Math.random() * 9000);
+      const txRef = `DEMO-ZB-${dateStr}-${randomId}`;
 
-      // Step 2: Call backend API to create real paid ticket
-      const txRef = `TXN-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      // 3. Prepare payload for API call
       const payload = {
         routeId: selectedRoute.id,
         passengerType: ticketPassengerType.toUpperCase(),
@@ -919,14 +1232,14 @@ export default function ExplorePage() {
         transactionReference: txRef,
       };
 
+      // 4. Call API
       const res = user
         ? await purchaseTicket(payload)
         : await purchaseTicketPublic(payload);
 
       const ticketData = res.data;
 
-      setPaymentSimulationState('success');
-      setSimulationMessage('Payment confirmed! Ticket generated.');
+      // 5. Store created ticket and save in state
       setCreatedTicket(ticketData);
 
       // Save to local storage history
@@ -942,12 +1255,18 @@ export default function ExplorePage() {
       saveStoredTickets([localEntry, ...loadStoredTickets().filter((x) => x.ticketNumber !== localEntry.ticketNumber)]);
       window.dispatchEvent(new CustomEvent('zanusafiri:ticket_booked'));
 
-      toast.success('Payment successful! Digital ticket issued.');
-      setPurchaseStep(4); // Advance to Step 5 (Receipt)
+      // 6. Complete payment state
+      setPaymentSimulationState('success');
+      setSimulationMessage('Payment confirmed! Ticket generated.');
+      setVerificationLoading(false);
+      setVerificationSuccess(true);
+      
+      toast.success('Demo Payment Successful');
     } catch (err) {
-      setPaymentSimulationState('failed');
-      setSimulationMessage(err.response?.data?.message || 'Payment processing failed');
-      toast.error(err.response?.data?.message || 'Payment failed');
+      setVerificationLoading(false);
+      const errorMsg = err.response?.data?.message || 'Payment processing failed';
+      setCaptchaError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
@@ -1692,7 +2011,7 @@ export default function ExplorePage() {
                     className="ep-tp-btn-primary"
                     style={{ marginTop: 16 }}
                     disabled={paymentSimulationState !== 'idle' && paymentSimulationState !== 'failed'}
-                    onClick={handleProcessPayment}
+                    onClick={handleStartPaymentVerification}
                   >
                     <Shield style={{ fontSize: 18 }} /> Pay TSh {fmtMoney(activeFareInfo?.amount)}
                   </button>
@@ -1865,6 +2184,31 @@ export default function ExplorePage() {
 
       {/* ── Conductor QR Verification Modal ── */}
       <QrVerifyModal open={verifyModalOpen} onClose={() => setVerifyModalOpen(false)} />
+
+      {/* ── Payment Security Verification Modal ── */}
+      <PaymentVerificationModal
+        open={isVerificationModalOpen}
+        onClose={() => {
+          setIsVerificationModalOpen(false);
+          if (verificationSuccess) {
+            setPurchaseStep(4);
+          }
+        }}
+        paymentProvider={paymentProvider}
+        paymentMethod={paymentMethod}
+        paymentPhone={paymentPhone}
+        passengerPhone={passengerPhone}
+        amount={fmtMoney(activeFareInfo?.amount)}
+        captchaNum1={captchaNum1}
+        captchaNum2={captchaNum2}
+        captchaAnswer={captchaAnswer}
+        setCaptchaAnswer={setCaptchaAnswer}
+        captchaError={captchaError}
+        loading={verificationLoading}
+        success={verificationSuccess}
+        onVerify={handleVerifyCaptcha}
+        onRefreshCaptcha={generateNewCaptcha}
+      />
 
       {/* Footer Navigation */}
       <nav className="ep-footer-nav">

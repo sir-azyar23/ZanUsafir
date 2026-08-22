@@ -250,6 +250,27 @@ public class TicketService {
         String refNumber   = generateReferenceNumber();
         String qrToken     = generateQrToken();
 
+        // Resolve fromStop and toStop
+        BusStop fromStop = null;
+        BusStop toStop = null;
+        if (request.getFromStopId() != null) {
+            fromStop = busStopRepository.findById(request.getFromStopId()).orElse(null);
+        }
+        if (request.getToStopId() != null) {
+            toStop = busStopRepository.findById(request.getToStopId()).orElse(null);
+        }
+        // Fallback to route's first and last stops
+        if (fromStop == null && route.getRouteStops() != null && !route.getRouteStops().isEmpty()) {
+            fromStop = route.getRouteStops().get(0).getBusStop();
+        }
+        if (toStop == null && route.getRouteStops() != null && !route.getRouteStops().isEmpty()) {
+            toStop = route.getRouteStops().get(route.getRouteStops().size() - 1).getBusStop();
+        }
+
+        if (fromStop == null || toStop == null) {
+            throw new RuntimeException("This route does not have stops configured. Cannot book ticket.");
+        }
+
         // 7. Build and save
         Ticket ticket = Ticket.builder()
             .ticketNumber(ticketNumber)
@@ -260,12 +281,14 @@ public class TicketService {
             .passengerPhone(passengerPhone)
             .passengerType(passengerType.toUpperCase())
             .route(route)
+            .fromStop(fromStop)
+            .toStop(toStop)
             .amount(fare)
             .currency("TZS")
             .paymentMethod(paymentMethod.toUpperCase())
             .paymentProvider(paymentProvider)
             .transactionReference(txRef)
-            .paymentStatus(Ticket.PaymentStatus.PAID)
+            .paymentStatus(txRef != null && txRef.startsWith("DEMO-") ? Ticket.PaymentStatus.DEMO_PAID : Ticket.PaymentStatus.PAID)
             .status(Ticket.TicketStatus.ACTIVE)
             .travelDate(request.getTravelDate())
             .issuedAt(LocalDateTime.now())
