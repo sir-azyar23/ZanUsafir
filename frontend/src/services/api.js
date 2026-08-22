@@ -12,14 +12,35 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401 globally — but NOT for the login endpoint itself
+// Deduplication flag: prevent multiple parallel 401 responses from firing
+// multiple logout events simultaneously (e.g. Promise.all with several requests).
+let _logoutPending = false;
+
+// Handle 401 globally — but NOT for:
+//   • the login endpoint itself (avoids clearing tokens on bad credentials)
+//   • 403 Forbidden responses (user is authenticated but lacks permission;
+//     the token is valid, so we must NOT log them out)
 api.interceptors.response.use(
   (res) => res,
   (err) => {
+    const status = err.response?.status;
     const isLoginRequest = err.config?.url === '/auth/login';
-    if (err.response?.status === 401 && !isLoginRequest) {
-      localStorage.clear();
+    const hadAuthHeader = Boolean(err.config?.headers?.Authorization);
+
+    // 403 = token is valid, user simply lacks the required role → do NOT logout
+    if (status === 403) {
+      return Promise.reject(err);
+    }
+
+    // 401 = token is missing, expired, or invalid → force logout once
+    if (status === 401 && !isLoginRequest && hadAuthHeader && !_logoutPending) {
+      _logoutPending = true;
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
       window.dispatchEvent(new CustomEvent('auth:logout'));
+      // Reset after a short delay so future genuine 401s still trigger logout
+      setTimeout(() => { _logoutPending = false; }, 3000);
     }
     return Promise.reject(err);
   }
@@ -107,13 +128,22 @@ export const rejectGeneratedRoute = (id, comment) => api.patch(`/generated-route
 // ── Audit Logs ────────────────────────────────────────────
 export const getAuditLogs = (params) => api.get('/audit-logs', { params });
 
-// ── Tickets ───────────────────────────────────────────────
+// ── Tickets ───────────────────────────────────────────────────────────────
 export const getMyTickets = () => api.get('/tickets/mine');
-export const getAllTickets = () => api.get('/tickets');
+export const getAllTickets = (params) => api.get('/tickets', { params });
+export const getTicketSalesSummary = () => api.get('/tickets/summary');
+export const exportTicketSalesReport = (params) => api.get('/tickets/export', { params, responseType: 'blob' });
 export const getTicket = (id) => api.get(`/tickets/${id}`);
-export const bookTicket = (data) => api.post('/tickets', data);
-export const bookTicketPublic = (data) => api.post('/tickets/public', data);
-export const cancelTicket = (id) => api.patch(`/tickets/${id}/cancel`);
+export const purchaseTicket = (data) => api.post('/tickets', data);
+export const purchaseTicketPublic = (data) => api.post('/tickets/public', data);
+export const getTicketFare = (routeId, passengerType) =>
+  api.get('/tickets/fare', { params: { routeId, passengerType } });
+export const verifyTicketQr = (qrToken) => api.post('/tickets/verify', { qrToken });
+export const cancelTicket = (id, reason) => api.patch(`/tickets/${id}/cancel`, { reason });
+
+// Legacy aliases
+export const bookTicket = purchaseTicket;
+export const bookTicketPublic = purchaseTicketPublic;
 
 // ── Notifications ─────────────────────────────────────────
 export const getNotifications = (page = 0, size = 20) =>

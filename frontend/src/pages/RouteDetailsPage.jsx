@@ -49,7 +49,7 @@ const stopMarkerIcon = (background, border = '#ffffff', size = 18) => L.divIcon(
   iconAnchor: [size / 2, size / 2],
 });
 
-const START_ICON = stopMarkerIcon('#1E7D3A', '#36A9E1', 22);
+const START_ICON = stopMarkerIcon('#12a150', '#36A9E1', 22);
 const END_ICON = stopMarkerIcon('var(--danger)', '#ffffff', 22);
 const BUS_STOP_ICON = L.divIcon({
   className: 'route-detail-bus-stop-marker',
@@ -61,7 +61,7 @@ const BUS_STOP_ICON = L.divIcon({
     justify-content:center;
     border-radius:5px 5px 5px 1px;
     background:rgba(54,169,225,0.18);
-    border:2px solid #1E7D3A;
+    border:2px solid #12a150;
     color:#1F2937;
     font-size:10px;
     font-weight:900;

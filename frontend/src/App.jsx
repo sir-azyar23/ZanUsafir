@@ -33,11 +33,11 @@ import UnauthorizedPage from './pages/UnauthorizedPage';
 
 const HOT_TOAST_STYLES = {
   success: {
-    background: '#39B54A',
+    background: '#12a150',
     color: '#FFFFFF',
     icon: '#FFFFFF',
-    border: '#1E7D3A',
-    shadow: '0 18px 48px rgba(57, 181, 74, 0.18)',
+    border: '#0b3d24',
+    shadow: '0 18px 48px rgba(18, 161, 80, 0.18)',
   },
   error: {
     background: 'rgba(255, 239, 242, 0.95)',
@@ -47,11 +47,11 @@ const HOT_TOAST_STYLES = {
     shadow: '0 18px 48px rgba(220, 38, 38, 0.14)',
   },
   info: {
-    background: '#1E7D3A',
+    background: '#0f7a3f',
     color: '#ffffff',
-    icon: '#a7f3d0',
-    border: '#39B54A',
-    shadow: '0 18px 48px rgba(30, 125, 58, 0.28)',
+    icon: '#e3f7ea',
+    border: '#12a150',
+    shadow: '0 18px 48px rgba(15, 122, 63, 0.18)',
   },
 };
 
@@ -221,7 +221,7 @@ export default function App() {
                 <Route path="/stops" element={<BusStopsPage />} />
                 <Route path="/route-settings font" element={<RouteSettingsPage />} />
                 <Route path="/route-settings" element={<RouteSettingsPage />} />
-                <Route path="/buses"         element={<Navigate to="/route-settings" replace />} />
+                <Route path="/buses"         element={<BusesPage />} />
                 <Route path="/fares"         element={<Navigate to="/route-settings" replace />} />
                 <Route path="/drivers"       element={<DriversPage />} />
                 <Route path="/tickets"       element={<AdminTicketsPage />} />

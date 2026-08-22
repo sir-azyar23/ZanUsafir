@@ -60,6 +60,8 @@ public class SecurityConfig {
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/routes/**", "/stops/**", "/fares/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/tickets/public").permitAll()
+                .requestMatchers(HttpMethod.GET, "/tickets/fare").permitAll()
+                .requestMatchers(HttpMethod.POST, "/tickets/verify").permitAll()
                 // Admin-only
                 .requestMatchers("/users/**").hasRole("ADMIN")
                 .requestMatchers("/audit-logs/**").hasRole("ADMIN")

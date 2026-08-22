@@ -19,6 +19,7 @@ public class DatabaseConstraintInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) {
         ensureUserRoleConstraintAllowsTransportOfficer();
+        ensureTicketStatusConstraintAllowsAllStatuses();
     }
 
     private void ensureUserRoleConstraintAllowsTransportOfficer() {
@@ -37,6 +38,20 @@ public class DatabaseConstraintInitializer implements CommandLineRunner {
             log.info("Verified users.role check constraint includes only ADMIN and TRANSPORT_OFFICER");
         } catch (Exception e) {
             log.warn("Could not update users.role check constraint: {}", e.getMessage());
+        }
+    }
+
+    private void ensureTicketStatusConstraintAllowsAllStatuses() {
+        try {
+            jdbcTemplate.execute("ALTER TABLE tickets DROP CONSTRAINT IF EXISTS tickets_status_check");
+            jdbcTemplate.execute("""
+                ALTER TABLE tickets
+                ADD CONSTRAINT tickets_status_check
+                CHECK (status IN ('ACTIVE', 'USED', 'CANCELLED', 'NOT_ISSUED', 'EXPIRED', 'BOOKED'))
+                """);
+            log.info("Verified tickets.status check constraint includes all status values");
+        } catch (Exception e) {
+            log.warn("Could not update tickets.status check constraint: {}", e.getMessage());
         }
     }
 }

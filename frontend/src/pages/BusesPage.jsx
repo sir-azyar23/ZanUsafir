@@ -328,8 +328,7 @@ export default function BusesPage() {
           <h2>Fleet Management</h2>
           <p>{loading ? 'Loading buses...' : `${filtered.length} bus${filtered.length !== 1 ? 'es' : ''} in fleet`}</p>
         </div>
-        <button className="btn" onClick={() => { setEditTarget(null); setModalOpen(true); }}
-          style={{ position: 'relative', zIndex: 1, background: 'rgba(255,255,255,0.15)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.25)', backdropFilter: 'blur(8px)', boxShadow: 'none' }}>
+        <button className="btn btn-primary" onClick={() => { setEditTarget(null); setModalOpen(true); }}>
           <Add fontSize="small" /> Add Bus
         </button>
       </div>

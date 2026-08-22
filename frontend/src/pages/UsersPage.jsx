@@ -266,8 +266,7 @@ export default function UsersPage() {
           <h2>User Management</h2>
           <p>Manage system users, roles and access permissions</p>
         </div>
-        <button className="btn" onClick={() => { setEditingUser(null); setModalOpen(true); }}
-          style={{ position: 'relative', zIndex: 1, background: 'rgba(255,255,255,0.15)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.25)', backdropFilter: 'blur(8px)', boxShadow: 'none' }}>
+        <button className="btn btn-primary" onClick={() => { setEditingUser(null); setModalOpen(true); }}>
           <Add fontSize="small" /> Add User
         </button>
       </div>

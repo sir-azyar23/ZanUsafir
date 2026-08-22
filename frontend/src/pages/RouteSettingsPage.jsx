@@ -379,7 +379,7 @@ export default function RouteSettingsPage() {
       <div className="rs-stats-grid">
         <StatCard
           icon={<DirectionsBus style={{ fontSize: 26 }} />}
-          iconBg="rgba(34,197,94,0.12)" iconColor="#22C55E"
+          iconBg="rgba(18,161,80,0.12)" iconColor="#12a150"
           label="Assigned Buses" value={selectedRouteId ? assignedBusesCount : ""}
           subtitle={selectedRouteId ? "Buses on this route" : ""}
         />
@@ -397,7 +397,7 @@ export default function RouteSettingsPage() {
         />
         <StatCard
           icon={<CheckCircle style={{ fontSize: 26 }} />}
-          iconBg="rgba(34,197,94,0.12)" iconColor="#22C55E"
+          iconBg="rgba(18,161,80,0.12)" iconColor="#12a150"
           label="Route Status"
           value={
             selectedRouteId && selectedRoute ? (
@@ -415,7 +415,7 @@ export default function RouteSettingsPage() {
         {/* Left: Fleet Management (45%) */}
         <div className="rs-card rs-fleet-card">
           <div className="rs-card-header">
-            <div className="rs-card-icon" style={{ background: 'rgba(34,197,94,0.12)', color: '#22C55E' }}>
+            <div className="rs-card-icon" style={{ background: 'rgba(18,161,80,0.12)', color: '#12a150' }}>
               <DirectionsBus style={{ fontSize: 22 }} />
             </div>
             <div>
@@ -469,7 +469,7 @@ export default function RouteSettingsPage() {
         {/* Right: Fare Management (55%) */}
         <div className="rs-card rs-fare-card">
           <div className="rs-card-header">
-            <div className="rs-card-icon" style={{ background: 'rgba(34,197,94,0.12)', color: '#22C55E' }}>
+            <div className="rs-card-icon" style={{ background: 'rgba(18,161,80,0.12)', color: '#12a150' }}>
               <Payments style={{ fontSize: 22 }} />
             </div>
             <div>
@@ -498,7 +498,7 @@ export default function RouteSettingsPage() {
             </div>
             {/* Adult */}
             <div className="rs-fare-item">
-              <div className="rs-fare-icon" style={{ background: 'rgba(34,197,94,0.12)', color: '#22C55E' }}>
+              <div className="rs-fare-icon" style={{ background: 'rgba(18,161,80,0.12)', color: '#12a150' }}>
                 <Person style={{ fontSize: 20 }} />
               </div>
               <h3 className="rs-fare-name">Adult</h3>
@@ -605,7 +605,7 @@ export default function RouteSettingsPage() {
                       <td className="rs-td-code">{rCode}</td>
                       <td style={{ textAlign: 'center' }}>
                         <span className="rs-bus-badge">
-                          <DirectionsBus style={{ fontSize: 16, color: '#22C55E' }} />
+                          <DirectionsBus style={{ fontSize: 16, color: '#12a150' }} />
                           {busCount}
                         </span>
                       </td>
@@ -613,7 +613,7 @@ export default function RouteSettingsPage() {
                         {stopsCount}
                       </td>
                       <td className="rs-td-fare" style={{ color: '#6366F1' }}>{sFare.toLocaleString()}</td>
-                      <td className="rs-td-fare" style={{ color: '#22C55E' }}>{aFare.toLocaleString()}</td>
+                      <td className="rs-td-fare" style={{ color: '#12a150' }}>{aFare.toLocaleString()}</td>
                       <td className="rs-td-fare" style={{ color: '#F59E0B' }}>{senFare.toLocaleString()}</td>
                       <td style={{ textAlign: 'center' }}>
                         {hasConfig ? (

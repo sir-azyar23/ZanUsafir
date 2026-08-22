@@ -26,11 +26,11 @@ const TOAST_COPY = {
 
 const STYLE_BY_VARIANT = {
   success: {
-    background: '#39B54A',
+    background: '#12a150',
     color: '#ffffff',
     icon: '#ffffff',
-    border: '#1E7D3A',
-    shadow: '0 18px 48px rgba(57, 181, 74, 0.18)',
+    border: '#0b3d24',
+    shadow: '0 18px 48px rgba(18, 161, 80, 0.18)',
   },
   error: {
     background: 'rgba(255, 239, 242, 0.95)',
@@ -40,11 +40,11 @@ const STYLE_BY_VARIANT = {
     shadow: '0 18px 48px rgba(220, 38, 38, 0.14)',
   },
   info: {
-    background: '#0B4F8A',
+    background: '#0f7a3f',
     color: '#ffffff',
-    icon: '#36A9E1',
-    border: '#36A9E1',
-    shadow: '0 18px 48px rgba(11, 79, 138, 0.28)',
+    icon: '#e3f7ea',
+    border: '#12a150',
+    shadow: '0 18px 48px rgba(15, 122, 63, 0.18)',
   },
 };
 

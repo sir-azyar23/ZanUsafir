@@ -5,13 +5,28 @@ import { login as apiLogin } from '../services/api';
 const AuthContext = createContext(null);
 
 function getStoredUser() {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    localStorage.removeItem('user');
+    localStorage.removeItem('refreshToken');
+    return null;
+  }
+
   try {
     const stored = localStorage.getItem('user');
     return stored ? JSON.parse(stored) : null;
   } catch {
-    localStorage.clear();
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
     return null;
   }
+}
+
+function clearStoredAuth() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
 }
 
 export function AuthProvider({ children }) {
@@ -20,14 +35,14 @@ export function AuthProvider({ children }) {
   const navigate = useNavigate();
 
   const logout = useCallback(() => {
-    localStorage.clear();
+    clearStoredAuth();
     setUser(null);
     navigate('/login', { replace: true });
   }, [navigate]);
 
   // Clears auth data immediately without navigating — used by logout overlay
   const clearAuth = useCallback(() => {
-    localStorage.clear();
+    clearStoredAuth();
     setUser(null);
   }, []);
 
@@ -41,6 +56,7 @@ export function AuthProvider({ children }) {
   const login = async (credentials) => {
     const { data } = await apiLogin(credentials);
     localStorage.setItem('token', data.token);
+    if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
     localStorage.setItem('user', JSON.stringify(data));
     setUser(data);
     return data;

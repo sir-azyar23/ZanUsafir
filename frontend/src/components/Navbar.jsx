@@ -13,16 +13,16 @@ import { useNotifications } from '../hooks/useNotifications';
 
 // ── Type config for notification icons / colours ───────────────────────────
 const TYPE_CONFIG = {
-  ROUTE:    { icon: <Info style={{ fontSize: 16 }} />,    color: '#3B82F6', bg: 'rgba(59,130,246,0.12)' },
-  BUS_STOP: { icon: <Circle style={{ fontSize: 16 }} />,  color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)' },
-  BUS:      { icon: <Info style={{ fontSize: 16 }} />,    color: '#0EA5E9', bg: 'rgba(14,165,233,0.12)' },
-  DRIVER:   { icon: <Info style={{ fontSize: 16 }} />,    color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
-  FARE:     { icon: <Info style={{ fontSize: 16 }} />,    color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
-  TICKET:   { icon: <CheckCircle style={{ fontSize: 16 }} />, color: '#39B54A', bg: 'rgba(57,181,74,0.12)' },
-  USER:     { icon: <Info style={{ fontSize: 16 }} />,    color: '#6366F1', bg: 'rgba(99,102,241,0.12)' },
-  WARNING:  { icon: <Warning style={{ fontSize: 16 }} />, color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
-  ERROR:    { icon: <ErrorIcon style={{ fontSize: 16 }} />, color: '#EF4444', bg: 'rgba(239,68,68,0.12)' },
-  DEFAULT:  { icon: <Info style={{ fontSize: 16 }} />,    color: '#6B7280', bg: 'rgba(107,114,128,0.12)' },
+  ROUTE: { icon: <Info style={{ fontSize: 16 }} />, color: '#3B82F6', bg: 'rgba(59,130,246,0.12)' },
+  BUS_STOP: { icon: <Circle style={{ fontSize: 16 }} />, color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)' },
+  BUS: { icon: <Info style={{ fontSize: 16 }} />, color: '#0EA5E9', bg: 'rgba(14,165,233,0.12)' },
+  DRIVER: { icon: <Info style={{ fontSize: 16 }} />, color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
+  FARE: { icon: <Info style={{ fontSize: 16 }} />, color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
+  TICKET: { icon: <CheckCircle style={{ fontSize: 16 }} />, color: '#12a150', bg: 'rgba(18,161,80,0.12)' },
+  USER: { icon: <Info style={{ fontSize: 16 }} />, color: '#6366F1', bg: 'rgba(99,102,241,0.12)' },
+  WARNING: { icon: <Warning style={{ fontSize: 16 }} />, color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
+  ERROR: { icon: <ErrorIcon style={{ fontSize: 16 }} />, color: '#EF4444', bg: 'rgba(239,68,68,0.12)' },
+  DEFAULT: { icon: <Info style={{ fontSize: 16 }} />, color: '#6B7280', bg: 'rgba(107,114,128,0.12)' },
 };
 
 function getTypeCfg(type) {
@@ -149,7 +149,7 @@ export default function Navbar({ onMenuClick, title }) {
                   top: 4, right: 4,
                   minWidth: 16, height: 16,
                   borderRadius: 999,
-                  background: '#3FAF4A',
+                  background: '#12a150',
                   color: '#fff',
                   fontSize: '0.6rem',
                   fontWeight: 800,
@@ -190,13 +190,13 @@ export default function Navbar({ onMenuClick, title }) {
                 borderBottom: '1px solid #F1F5F9',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Notifications style={{ fontSize: 18, color: '#3FAF4A' }} />
+                  <Notifications style={{ fontSize: 18, color: '#12a150' }} />
                   <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#111827' }}>
                     Notifications
                   </span>
                   {(unreadCount ?? 0) > 0 && (
                     <span style={{
-                      background: '#3FAF4A', color: '#fff',
+                      background: '#12a150', color: '#fff',
                       fontSize: '0.65rem', fontWeight: 700,
                       padding: '2px 7px', borderRadius: 999,
                     }}>
@@ -245,13 +245,13 @@ export default function Navbar({ onMenuClick, title }) {
                       style={{
                         display: 'flex', alignItems: 'flex-start', gap: 12,
                         padding: '12px 16px',
-                        background: n.isRead ? '#fff' : 'rgba(57,181,74,0.04)',
+                        background: n.isRead ? '#fff' : 'var(--primary-tint)',
                         borderBottom: i < recentNotifs.length - 1 ? '1px solid #F8FAFC' : 'none',
                         cursor: 'pointer',
                         transition: 'background 0.15s ease',
                       }}
                       onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
-                      onMouseLeave={e => e.currentTarget.style.background = n.isRead ? '#fff' : 'rgba(57,181,74,0.04)'}
+                      onMouseLeave={e => e.currentTarget.style.background = n.isRead ? '#fff' : 'var(--primary-tint)'}
                     >
                       {/* Icon */}
                       <div style={{
@@ -278,7 +278,7 @@ export default function Navbar({ onMenuClick, title }) {
                       </div>
                       {/* Unread dot */}
                       {!n.isRead && (
-                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#3FAF4A', flexShrink: 0, marginTop: 6 }} />
+                        <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#12a150', flexShrink: 0, marginTop: 6 }} />
                       )}
                     </div>
                   );
@@ -291,7 +291,7 @@ export default function Navbar({ onMenuClick, title }) {
                   onClick={() => { setNotifOpen(false); navigate('/notifications'); }}
                   style={{
                     width: '100%', padding: '9px 0',
-                    background: 'linear-gradient(135deg, #39B54A, #2E8B3D)',
+                    background: 'linear-gradient(135deg, #12a150, #0b3d24)',
                     color: '#fff', border: 'none', borderRadius: 10,
                     fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer',
                     transition: 'opacity 0.18s ease',
@@ -324,7 +324,7 @@ export default function Navbar({ onMenuClick, title }) {
           >
             <span style={{
               width: 30, height: 30, borderRadius: 8,
-              background: 'linear-gradient(135deg, #3FAF4A, #2E8B3D)',
+              background: 'linear-gradient(135deg, #12a150, #0b3d24)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: '#ffffff', fontWeight: 800, fontSize: '0.8rem', flexShrink: 0,
             }}>
@@ -336,11 +336,11 @@ export default function Navbar({ onMenuClick, title }) {
           </button>
 
           <div className={`user-dropdown ${userMenuOpen ? 'open' : ''}`} role="menu">
-            <div className="user-dropdown-header" style={{ background: 'linear-gradient(135deg, rgba(63,175,74,0.06), rgba(56,189,248,0.04))', borderRadius: 10, margin: 4 }}>
+            <div className="user-dropdown-header" style={{ background: 'linear-gradient(135deg, rgba(18,161,80,0.06), rgba(15,122,99,0.04))', borderRadius: 10, margin: 4 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 8px 10px' }}>
                 <div style={{
                   width: 40, height: 40, borderRadius: 10,
-                  background: 'linear-gradient(135deg, #3FAF4A, #2E8B3D)',
+                  background: 'linear-gradient(135deg, #12a150, #0b3d24)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: '#ffffff', fontWeight: 800, fontSize: '1rem', flexShrink: 0,
                 }}>

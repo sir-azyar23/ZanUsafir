@@ -12,7 +12,7 @@ const makeIcon = color =>
     popupAnchor: [0, -10],
   });
 
-const startIcon = makeIcon('#1E7D3A');
+const startIcon = makeIcon('#12a150');
 const endIcon = makeIcon('var(--danger)');
 const busStopIcon = L.divIcon({
   html: `<span style="

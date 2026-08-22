@@ -2,9 +2,9 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Tooltip } from '@mui/material';
 import {
-  Dashboard, Route, Place, DirectionsBus, Person, Payments,
+  Dashboard, Route, Place, Person,
   AdminPanelSettings, Summarize, AddRoad, FactCheck, CheckCircle, Cancel, Reviews,
-  Map as MapIcon, ConfirmationNumber, History, Tune,
+  Map as MapIcon, ConfirmationNumber, History, Tune, DirectionsBus,
 } from '@mui/icons-material';
 import zanusafiriLogo from '../assets/zanusafiri.png';
 
@@ -13,39 +13,39 @@ const travelNavItems = [
   { to: '/my-tickets', icon: History, label: 'Ticket History' },
 ];
 
-// Admin nav uses a config array that supports 'link' | 'divider' | 'label' types
 const adminNavConfig = [
-  { type: 'link', to: '/dashboard',      icon: Dashboard,          label: 'Dashboard' },
-  // ── Infrastructure & Settings ──
-  { type: 'link', to: '/routes',         icon: Route,              label: 'Routes', end: true },
-  { type: 'link', to: '/stops',          icon: Place,              label: 'Bus Stops' },
-  { type: 'link', to: '/route-settings', icon: Tune,               label: 'Route Settings' },
-  // ── Resources ──
-  { type: 'link', to: '/drivers',        icon: Person,             label: 'Drivers' },
-  // ── Operations ──
-  { type: 'link', to: '/tickets',        icon: ConfirmationNumber, label: 'Tickets' },
-  { type: 'link', to: '/reports',        icon: Summarize,          label: 'Reports' },
-  // ── Administration ──
-  { type: 'divider' },
-  { type: 'link', to: '/users',          icon: AdminPanelSettings, label: 'User Management' },
+  { type: 'label', text: 'MAIN' },
+  { type: 'link', to: '/dashboard', icon: Dashboard, label: 'Dashboard' },
+  { type: 'link', to: '/routes', icon: Route, label: 'Routes', end: true },
+  { type: 'link', to: '/stops', icon: Place, label: 'Bus Stops' },
+  { type: 'link', to: '/buses', icon: DirectionsBus, label: 'Buses' },
+
+  { type: 'label', text: 'OPERATIONS' },
+  { type: 'link', to: '/tickets', icon: ConfirmationNumber, label: 'Tickets' },
+  { type: 'link', to: '/reports', icon: Summarize, label: 'Reports' },
+
+  { type: 'label', text: 'SETTINGS' },
+  { type: 'link', to: '/route-settings', icon: Tune, label: 'Route Settings' },
+  { type: 'link', to: '/drivers', icon: Person, label: 'Drivers' },
+  { type: 'link', to: '/users', icon: AdminPanelSettings, label: 'User Management' },
 ];
 
 const transportOfficerNavItems = [
-  { to: '/dashboard',       icon: Dashboard,   label: 'Dashboard' },
-  ...travelNavItems,
-  { to: '/create-route',    icon: AddRoad,     label: 'Create Route Map' },
-  { to: '/pending-routes',  icon: Reviews,     label: 'Pending Routes' },
-  { to: '/approved-routes', icon: CheckCircle, label: 'Approved Routes' },
-  { to: '/rejected-routes', icon: Cancel,      label: 'Rejected Routes' },
-  { to: '/route-reviews',   icon: FactCheck,   label: 'Route Reviews' },
-  { to: '/reports',         icon: Summarize,   label: 'Reports' },
-  { to: '/profile',         icon: Person,      label: 'Profile' },
-];
+  { type: 'label', text: 'MAIN' },
+  { type: 'link', to: '/dashboard', icon: Dashboard, label: 'Dashboard' },
+  ...travelNavItems.map(item => ({ type: 'link', ...item })),
 
-const roleColors = {
-  ADMIN: { bg: 'rgba(63,175,74,0.22)', color: '#a7f3d0' },
-  TRANSPORT_OFFICER: { bg: 'rgba(245,158,11,0.22)', color: '#fde68a' },
-};
+  { type: 'label', text: 'OPERATIONS' },
+  { type: 'link', to: '/create-route', icon: AddRoad, label: 'Create Route Map' },
+  { type: 'link', to: '/pending-routes', icon: Reviews, label: 'Pending Routes' },
+  { type: 'link', to: '/approved-routes', icon: CheckCircle, label: 'Approved Routes' },
+  { type: 'link', to: '/rejected-routes', icon: Cancel, label: 'Rejected Routes' },
+  { type: 'link', to: '/route-reviews', icon: FactCheck, label: 'Route Reviews' },
+  { type: 'link', to: '/reports', icon: Summarize, label: 'Reports' },
+
+  { type: 'label', text: 'SETTINGS' },
+  { type: 'link', to: '/profile', icon: Person, label: 'Profile' },
+];
 
 function NavItem({ item, collapsed, onClick, pathname }) {
   const Icon = item.icon;
@@ -59,7 +59,7 @@ function NavItem({ item, collapsed, onClick, pathname }) {
       }
     >
       <span className="sidebar-link-icon">
-        <Icon style={{ fontSize: 20 }} />
+        <Icon style={{ fontSize: 19 }} />
       </span>
       {!collapsed && <span className="sidebar-link-label">{item.label}</span>}
     </NavLink>
@@ -80,13 +80,8 @@ export default function Sidebar({ open, onClose, collapsed }) {
   const { user, isAdmin } = useAuth();
   const location = useLocation();
 
-  // For admin: use the rich config; for officers: wrap plain items as 'link' entries
-  const navConfig = isAdmin()
-    ? adminNavConfig
-    : transportOfficerNavItems.map(item => ({ type: 'link', ...item }));
-
-  const roleBadge = roleColors[user?.role] || roleColors.TRANSPORT_OFFICER;
-  const roleLabel = user?.role === 'ADMIN' ? 'Admin' : 'Transport Officer';
+  const navConfig = isAdmin() ? adminNavConfig : transportOfficerNavItems;
+  const roleLabel = user?.role === 'ADMIN' ? 'ADMIN' : 'OFFICER';
 
   return (
     <>
@@ -111,29 +106,29 @@ export default function Sidebar({ open, onClose, collapsed }) {
           alignItems: 'center',
           justifyContent: collapsed ? 'center' : 'flex-start',
           padding: collapsed ? '16px 0' : '16px 18px',
-          borderBottom: '1px solid rgba(255,255,255,0.09)',
-          minHeight: 66,
+          borderBottom: '1px solid var(--border)',
+          minHeight: 64,
           flexShrink: 0,
           gap: 12,
         }}>
           <div style={{
-            width: 38, height: 38, borderRadius: 11, flexShrink: 0,
+            width: 36, height: 36, borderRadius: 10, flexShrink: 0,
             overflow: 'hidden',
-            boxShadow: '0 4px 16px rgba(63,175,74,0.5)',
+            boxShadow: '0 4px 12px rgba(34,197,94,0.3)',
           }}>
-            <img src={zanusafiriLogo} alt="ZanUsafiri" style={{ width: 38, height: 38, objectFit: 'cover', display: 'block' }} />
+            <img src={zanusafiriLogo} alt="ZanUsafiri" style={{ width: 36, height: 36, objectFit: 'cover', display: 'block' }} />
           </div>
           {!collapsed && (
             <div style={{ overflow: 'hidden' }}>
               <div style={{
-                color: 'white', fontWeight: 800, fontSize: '1rem',
+                color: 'var(--text-primary)', fontWeight: 800, fontSize: '1.02rem',
                 lineHeight: 1.2, whiteSpace: 'nowrap', letterSpacing: '-0.3px',
               }}>ZanUsafiri</div>
               <div style={{
-                color: 'rgba(255,255,255,0.45)', fontSize: '0.66rem', marginTop: 2,
-                textTransform: 'uppercase', letterSpacing: '0.08em',
+                color: 'var(--text-secondary)', fontSize: '0.62rem', marginTop: 1,
+                textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700,
               }}>
-                Transport Portal
+                TRANSPORT PORTAL
               </div>
             </div>
           )}
@@ -144,47 +139,47 @@ export default function Sidebar({ open, onClose, collapsed }) {
           <Tooltip title={`${user?.fullName} · ${user?.role}`} placement="right" arrow>
             <div style={{
               margin: '12px auto 4px',
-              width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
-              background: '#0F172A',
+              width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+              background: '#12a150',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#ffffff', fontWeight: 800, fontSize: 15, cursor: 'default',
-              boxShadow: '0 4px 12px rgba(15,23,42,0.45)',
+              color: '#ffffff', fontWeight: 800, fontSize: 14, cursor: 'default',
+              boxShadow: '0 4px 12px rgba(18,161,80,0.35)',
             }}>
-              {user?.fullName?.charAt(0) || 'U'}
+              {user?.fullName?.charAt(0) || 'S'}
             </div>
           </Tooltip>
         ) : (
           <div style={{
-            margin: '10px 12px 4px',
+            margin: '12px 14px 6px',
             padding: '12px 14px',
-            borderRadius: 12,
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 14,
+            background: 'linear-gradient(135deg, #12a150 0%, #0b3d24 100%)',
+            boxShadow: 'var(--shadow-md)',
             flexShrink: 0,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{
-                width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
-                background: 'linear-gradient(135deg, #3FAF4A, #2E8B3D)',
+                width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                background: '#ffffff',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#ffffff', fontWeight: 800, fontSize: 15,
-                boxShadow: '0 4px 12px rgba(63,175,74,0.45)',
+                color: '#0b3d24', fontWeight: 800, fontSize: 14,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
               }}>
-                {user?.fullName?.charAt(0) || 'U'}
+                {user?.fullName?.charAt(0) || 'S'}
               </div>
               <div style={{ minWidth: 0 }}>
                 <div style={{
-                  color: 'white', fontWeight: 700, fontSize: '0.85rem',
+                  color: '#ffffff', fontWeight: 800, fontSize: '0.85rem',
                   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 }}>
-                  {user?.fullName}
+                  {user?.fullName || 'System Administrator'}
                 </div>
                 <span style={{
-                  display: 'inline-flex', alignItems: 'center', marginTop: 4,
-                  background: roleBadge.bg,
-                  color: roleBadge.color,
-                  fontSize: '0.6rem', fontWeight: 700,
-                  padding: '2px 8px', borderRadius: 999, letterSpacing: '0.06em',
+                  display: 'inline-flex', alignItems: 'center', marginTop: 3,
+                  background: 'rgba(255,255,255,0.25)',
+                  color: '#ffffff',
+                  fontSize: '0.62rem', fontWeight: 800,
+                  padding: '2px 7px', borderRadius: 999, letterSpacing: '0.06em',
                   textTransform: 'uppercase',
                 }}>
                   {roleLabel}
@@ -197,17 +192,13 @@ export default function Sidebar({ open, onClose, collapsed }) {
         {/* Navigation */}
         <nav style={{
           flex: 1,
-          marginTop: 10,
+          marginTop: 6,
           overflowY: 'auto',
           overflowX: 'hidden',
           display: 'flex',
           flexDirection: 'column',
           alignItems: collapsed ? 'center' : 'stretch',
         }}>
-          {!collapsed && (
-            <div className="sidebar-section-label">Main Menu</div>
-          )}
-
           {navConfig.map((entry, idx) => {
             if (entry.type === 'divider') {
               return (
@@ -220,7 +211,7 @@ export default function Sidebar({ open, onClose, collapsed }) {
             }
             if (entry.type === 'label' && !collapsed) {
               return (
-                <div key={`label-${idx}`} className="sidebar-section-label" style={{ marginTop: 4 }}>
+                <div key={`label-${idx}`} className="sidebar-section-label" style={{ marginTop: idx === 0 ? 4 : 14 }}>
                   {entry.text}
                 </div>
               );
@@ -243,11 +234,12 @@ export default function Sidebar({ open, onClose, collapsed }) {
         {/* Footer version */}
         {!collapsed && (
           <div style={{
-            padding: '12px 20px',
-            borderTop: '1px solid rgba(255,255,255,0.07)',
-            color: 'rgba(255,255,255,0.22)',
-            fontSize: '0.65rem',
+            padding: '12px 18px',
+            borderTop: '1px solid var(--border)',
+            color: 'var(--text-secondary)',
+            fontSize: '0.66rem',
             letterSpacing: '0.04em',
+            fontWeight: 500
           }}>
             ZanUsafiri v2.0 · Smart Transport
           </div>

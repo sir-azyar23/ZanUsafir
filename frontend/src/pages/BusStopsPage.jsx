@@ -11,7 +11,7 @@ const DEFAULT_MAP_CENTER = [-6.165917, 39.202641];
 
 const pickerIcon = L.divIcon({
   className: 'stop-map-picker-marker',
-  html: '<span style="width:18px;height:18px;display:block;border-radius:999px;background:#36A9E1;border:3px solid #1E7D3A;box-shadow:0 4px 12px rgba(31,41,55,0.16);"></span>',
+  html: '<span style="width:18px;height:18px;display:block;border-radius:999px;background:#36A9E1;border:3px solid var(--primary);box-shadow:0 4px 12px rgba(31,41,55,0.16);"></span>',
   iconSize: [18, 18],
   iconAnchor: [9, 9],
 });
@@ -354,9 +354,9 @@ function RouteCard({ route, stops, onAddStop, onEditStop, onDeleteStop }) {
         overflow: 'hidden',
         marginBottom: 20,
         borderRadius: 16,
-        border: '1px solid rgba(57,181,74,0.15)',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
-        background: '#ffffff',
+        border: '1px solid var(--border)',
+        boxShadow: 'var(--shadow-sm)',
+        background: 'var(--bg-card)',
         transition: 'all 0.3s ease'
       }}
     >
@@ -369,7 +369,7 @@ function RouteCard({ route, stops, onAddStop, onEditStop, onDeleteStop }) {
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: 16,
-          background: 'linear-gradient(to right, #ffffff, rgba(57,181,74,0.02))'
+          background: 'var(--bg-card)'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -378,7 +378,7 @@ function RouteCard({ route, stops, onAddStop, onEditStop, onDeleteStop }) {
               width: 48,
               height: 48,
               borderRadius: 12,
-              background: 'linear-gradient(135deg, rgba(57,181,74,0.15), rgba(30,125,58,0.2))',
+              background: 'var(--primary-tint)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -420,8 +420,6 @@ function RouteCard({ route, stops, onAddStop, onEditStop, onDeleteStop }) {
                 gap: 8,
                 padding: '8px 16px',
                 fontSize: '0.85rem',
-                border: '1px solid rgba(57,181,74,0.25)',
-                color: 'var(--primary)',
                 borderRadius: 10,
               }}
             >
@@ -463,8 +461,8 @@ function RouteCard({ route, stops, onAddStop, onEditStop, onDeleteStop }) {
           maxHeight: expanded ? '2000px' : '0px',
           overflow: 'hidden',
           transition: 'max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-          borderTop: expanded ? '1px solid rgba(57,181,74,0.1)' : '0px solid transparent',
-          background: '#fafbfa'
+          borderTop: expanded ? '1px solid var(--border)' : '0px solid transparent',
+          background: 'var(--bg-light)'
         }}
       >
         <div style={{ padding: '16px 24px 24px' }}>
@@ -628,9 +626,13 @@ export default function BusStopsPage() {
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
           <div style={{ position: 'relative' }}>
-            <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.55)', fontSize: 18 }} />
+            <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', fontSize: 18 }} />
             <input
-              style={{ paddingLeft: 34, width: 220, padding: '9px 12px 9px 34px', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 10, color: '#ffffff', fontSize: '0.875rem', outline: 'none' }}
+              style={{
+                paddingLeft: 34, width: 220, padding: '9px 12px 9px 34px',
+                background: 'var(--bg-light)', border: '1px solid var(--border)',
+                borderRadius: 10, color: 'var(--text-primary)', fontSize: '0.875rem', outline: 'none'
+              }}
               placeholder="Search routes..."
               value={search}
               onChange={e => setSearch(e.target.value)}

@@ -24,7 +24,7 @@ const icon = (color) => L.divIcon({
   iconAnchor: [9, 9],
 });
 
-const START_ICON = icon('#1E7D3A');
+const START_ICON = icon('#12a150');
 const STOP_ICON = icon('#36A9E1');
 const END_ICON = icon('var(--danger)');
 

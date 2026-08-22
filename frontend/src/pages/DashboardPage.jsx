@@ -35,25 +35,25 @@ const normalizeList = (data) => {
 
 function StatCard({ icon, label, value, helper, tone = 'primary' }) {
   const toneMap = {
-    primary: { bg: 'linear-gradient(135deg, rgba(63,175,74,0.12), rgba(56,189,248,0.08))', color: '#3FAF4A' },
-    warning: { bg: 'rgba(245,158,11,0.1)', color: '#b45309' },
-    info:    { bg: 'rgba(56,189,248,0.12)', color: '#0284C7' },
-    success: { bg: 'rgba(63,175,74,0.12)', color: '#2E8B3D' },
+    primary: { bg: 'var(--primary-tint)', color: 'var(--primary)' },
+    warning: { bg: 'var(--status-pending-bg)', color: 'var(--status-pending-text)' },
+    info:    { bg: 'var(--status-used-bg)', color: 'var(--status-used-text)' },
+    success: { bg: 'var(--status-paid-bg)', color: 'var(--status-paid-text)' },
   };
   const t = toneMap[tone] || toneMap.primary;
   return (
     <div className="stat-card animate-fade-in">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14 }}>
         <div style={{ minWidth: 0 }}>
-          <p style={{ color: '#6B7280', fontSize: '0.72rem', fontWeight: 800, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</p>
-          <p style={{ fontSize: '2.1rem', fontWeight: 900, color: '#111827', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{value}</p>
-          {helper && <p style={{ fontSize: '0.74rem', color: '#6B7280', marginTop: 8, fontWeight: 500 }}>{helper}</p>}
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.72rem', fontWeight: 800, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</p>
+          <p style={{ fontSize: '2.1rem', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{value}</p>
+          {helper && <p style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: 8, fontWeight: 500 }}>{helper}</p>}
         </div>
         <div style={{
-          width: 50, height: 50, borderRadius: 14,
+          width: 48, height: 48, borderRadius: 14,
           background: t.bg, color: t.color,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0, fontSize: 24,
+          flexShrink: 0, fontSize: 22,
         }}>
           {icon}
         </div>
@@ -64,7 +64,7 @@ function StatCard({ icon, label, value, helper, tone = 'primary' }) {
 
 function EmptyState({ message }) {
   return (
-    <div className="stat-card" style={{ padding: 24, display: 'flex', alignItems: 'center', gap: 12, color: '#92400e', background: '#fff7ed', borderColor: '#fed7aa' }}>
+    <div className="stat-card" style={{ padding: 24, display: 'flex', alignItems: 'center', gap: 12, color: 'var(--status-pending-text)', background: 'var(--status-pending-bg)', borderColor: 'var(--border)' }}>
       <WarningAmber />
       <strong>{message}</strong>
     </div>
@@ -173,24 +173,23 @@ export default function DashboardPage() {
     <div>
       <div className="page-hero" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 18, flexWrap: 'wrap', marginBottom: 26 }}>
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <h2 style={{ color: 'white', fontSize: '1.5rem', fontWeight: 800, margin: '0 0 8px' }}>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '0 0 8px' }}>
             {admin ? '🚌 Admin Master Data Center' : '🔍 Transport Officer Review & Route Center'}
           </h2>
-          <p style={{ color: 'rgba(255,255,255,0.75)', margin: '0 0 14px', fontSize: '0.9rem', maxWidth: 600, lineHeight: 1.55 }}>
+          <p style={{ margin: '0 0 14px', fontSize: '0.9rem', maxWidth: 600, lineHeight: 1.55 }}>
             {admin
               ? 'Prepare routes, stops, buses, drivers, fares, and users so transport officers can generate route maps and reports.'
               : 'Create route maps, review submitted routes, inspect complete setup details, or approve routes.'}
           </p>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
-            <span className="badge badge-success" style={{ background: 'rgba(57,181,74,0.25)', color: '#a7f3d0', border: '1px solid rgba(57,181,74,0.4)', fontSize: '0.75rem' }}>
+            <span className="badge badge-success" style={{ fontSize: '0.75rem' }}>
               <CheckCircle style={{ fontSize: 14 }} /> {masterDataReady ? 'Route data ready' : 'Master data needed'}
             </span>
-            <span className="badge badge-info" style={{ background: 'rgba(255,255,255,0.15)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.2)' }}>{user?.role === 'TRANSPORT_OFFICER' ? 'Transport Officer' : user?.role}</span>
+            <span className="badge badge-neutral">{user?.role === 'TRANSPORT_OFFICER' ? 'Transport Officer' : user?.role}</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
-          <button type="button" className="btn btn-ghost" onClick={refreshDashboard} disabled={loadingStats}
-            style={{ color: 'rgba(255,255,255,0.85)', borderColor: 'rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.1)' }}>
+          <button type="button" className="btn btn-ghost" onClick={refreshDashboard} disabled={loadingStats}>
             <Refresh fontSize="small" />
             {loadingStats ? 'Reloading...' : 'Reload Data'}
           </button>
@@ -217,13 +216,13 @@ export default function DashboardPage() {
       {!admin && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}>
           {[
-            { icon: <AddRoad />, title: 'Create Route Map', text: 'Select an Admin-prepared route and choose bus stops.', path: '/create-route', color: '#1E7D3A' },
-            { icon: <FactCheck />, title: 'Pending Routes', text: 'Review routes submitted for approval.', path: '/pending-routes', color: '#39B54A' },
+            { icon: <AddRoad />, title: 'Create Route Map', text: 'Select an Admin-prepared route and choose bus stops.', path: '/create-route', color: '#0b3d24' },
+            { icon: <FactCheck />, title: 'Pending Routes', text: 'Review routes submitted for approval.', path: '/pending-routes', color: '#12a150' },
             { icon: <CheckCircle />, title: 'Approved Routes', text: 'View routes that passed review.', path: '/approved-routes', color: '#0d5fa0' },
             { icon: <Summarize />, title: 'Reports', text: 'Generate reports from route records.', path: '/reports', color: '#36A9E1' },
           ].map(item => (
             <button key={item.title} type="button" className="quick-action-card" onClick={() => navigate(item.path)}>
-              <span className="quick-action-card-icon" style={{ background: `rgba(${item.color === '#1E7D3A' ? '30,125,58' : item.color === '#39B54A' ? '57,181,74' : item.color === '#0d5fa0' ? '13,95,160' : '54,169,225'},0.12)`, color: item.color }}>{item.icon}</span>
+              <span className="quick-action-card-icon" style={{ background: `rgba(${item.color === '#0b3d24' ? '11,61,36' : item.color === '#12a150' ? '18,161,80' : item.color === '#0d5fa0' ? '13,95,160' : '54,169,225'},0.12)`, color: item.color }}>{item.icon}</span>
               <strong style={{ color: 'var(--text-primary)', fontSize: '0.95rem' }}>{item.title}</strong>
               <span style={{ color: 'var(--text-secondary)', fontSize: '.82rem', lineHeight: 1.45 }}>{item.text}</span>
             </button>

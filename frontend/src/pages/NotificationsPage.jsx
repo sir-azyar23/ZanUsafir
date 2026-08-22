@@ -13,7 +13,7 @@ const TYPE_CONFIG = {
   BUS:      { icon: <Info style={{ fontSize: 20 }} />,         color: '#0EA5E9', bg: 'rgba(14,165,233,0.12)', label: 'Bus' },
   DRIVER:   { icon: <Info style={{ fontSize: 20 }} />,         color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', label: 'Driver' },
   FARE:     { icon: <CheckCircle style={{ fontSize: 20 }} />,  color: '#10B981', bg: 'rgba(16,185,129,0.12)', label: 'Fare' },
-  TICKET:   { icon: <CheckCircle style={{ fontSize: 20 }} />,  color: '#39B54A', bg: 'rgba(57,181,74,0.12)',  label: 'Ticket' },
+  TICKET:   { icon: <CheckCircle style={{ fontSize: 20 }} />,  color: '#12a150', bg: 'rgba(18,161,80,0.12)',  label: 'Ticket' },
   USER:     { icon: <Info style={{ fontSize: 20 }} />,         color: '#6366F1', bg: 'rgba(99,102,241,0.12)', label: 'User' },
   WARNING:  { icon: <Warning style={{ fontSize: 20 }} />,      color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', label: 'Warning' },
   ERROR:    { icon: <ErrorIcon style={{ fontSize: 20 }} />,    color: '#EF4444', bg: 'rgba(239,68,68,0.12)',  label: 'Error' },
@@ -55,7 +55,7 @@ function NotifCard({ n, onMarkRead, onDelete }) {
         display: 'flex',
         gap: 16,
         alignItems: 'flex-start',
-        borderLeft: n.isRead ? 'none' : '3px solid #3FAF4A',
+        borderLeft: n.isRead ? 'none' : '3px solid var(--primary)',
         opacity: n.isRead ? 0.82 : 1,
         transition: 'opacity 0.2s ease, border 0.2s ease',
         position: 'relative',
@@ -81,7 +81,7 @@ function NotifCard({ n, onMarkRead, onDelete }) {
               </span>
               {!n.isRead && (
                 <span style={{
-                  background: '#3FAF4A', color: '#fff',
+                  background: 'var(--primary)', color: '#fff',
                   fontSize: '0.6rem', fontWeight: 700,
                   padding: '2px 7px', borderRadius: 999,
                 }}>NEW</span>
@@ -106,10 +106,10 @@ function NotifCard({ n, onMarkRead, onDelete }) {
                 onClick={() => onMarkRead(n.id)}
                 style={{
                   padding: '5px 12px',
-                  background: 'rgba(57,181,74,0.08)',
-                  border: '1px solid rgba(57,181,74,0.25)',
+                  background: 'var(--primary-tint)',
+                  border: '1px solid var(--border)',
                   borderRadius: 8, fontSize: '0.75rem', cursor: 'pointer',
-                  fontWeight: 600, color: '#2E8B3D',
+                  fontWeight: 600, color: 'var(--secondary)',
                   transition: 'all 0.15s ease',
                 }}
               >
@@ -189,11 +189,11 @@ export default function NotificationsPage() {
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
             <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <NotifIcon style={{ color: '#3FAF4A', fontSize: 28 }} />
+              <NotifIcon style={{ color: 'var(--primary)', fontSize: 28 }} />
               Notifications
               {unreadCount > 0 && (
                 <span style={{
-                  background: '#3FAF4A', color: '#fff',
+                  background: 'var(--primary)', color: '#fff',
                   borderRadius: 999, padding: '2px 10px',
                   fontSize: '0.75rem', fontWeight: 700,
                 }}>
@@ -236,7 +236,7 @@ export default function NotificationsPage() {
           <div style={{ display: 'flex', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
             {[
               { label: 'Total', count: notifications.length, color: '#6B7280' },
-              { label: 'Unread', count: unreadCount, color: '#3FAF4A' },
+              { label: 'Unread', count: unreadCount, color: 'var(--primary)' },
               { label: 'Read', count: notifications.length - unreadCount, color: '#9CA3AF' },
             ].map(s => (
               <div key={s.label} style={{
@@ -314,7 +314,7 @@ export default function NotificationsPage() {
       {/* ── Notification List ── */}
       {loading && notifications.length === 0 ? (
         <div className="stat-card" style={{ padding: 48, textAlign: 'center' }}>
-          <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid #3FAF4A', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+          <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid var(--primary)', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
           <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Loading notifications...</p>
         </div>
       ) : filtered.length === 0 ? (

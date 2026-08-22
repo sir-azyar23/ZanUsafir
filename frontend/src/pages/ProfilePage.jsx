@@ -120,7 +120,7 @@ export default function ProfilePage() {
       {/* Header card with avatar */}
       <div style={{
         borderRadius: 20, padding: 28, marginBottom: 24,
-        background: 'linear-gradient(135deg, var(--dark), var(--dark-surface))',
+        background: 'linear-gradient(135deg, #12a150 0%, #0b3d24 100%)',
         display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap',
       }}>
         <Avatar sx={{ width: 72, height: 72, fontSize: 28, bgcolor: 'var(--primary)', boxShadow: '0 4px 16px rgba(var(--primary-rgb),0.5)' }}>

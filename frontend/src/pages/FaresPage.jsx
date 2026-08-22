@@ -233,17 +233,25 @@ export default function FaresPage() {
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
           <select
-            style={{ padding: '9px 12px', width: 160, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 10, color: '#ffffff', fontSize: '0.875rem', outline: 'none' }}
+            style={{
+              padding: '9px 12px', width: 160,
+              background: 'var(--bg-light)', border: '1px solid var(--border)',
+              borderRadius: 10, color: 'var(--text-primary)', fontSize: '0.875rem', outline: 'none'
+            }}
             value={filterRoute}
             onChange={e => setFilterRoute(e.target.value)}
           >
-            <option value="" style={{ color: '#1F2937' }}>All Routes</option>
-            {routes.map(r => <option key={r.id} value={r.id} style={{ color: '#1F2937' }}>{r.name}</option>)}
+            <option value="">All Routes</option>
+            {routes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
           <div style={{ position: 'relative' }}>
-            <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.55)', fontSize: 18 }} />
+            <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', fontSize: 18 }} />
             <input
-              style={{ paddingLeft: 34, width: 180, padding: '9px 12px 9px 34px', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 10, color: '#ffffff', fontSize: '0.875rem', outline: 'none' }}
+              style={{
+                paddingLeft: 34, width: 180, padding: '9px 12px 9px 34px',
+                background: 'var(--bg-light)', border: '1px solid var(--border)',
+                borderRadius: 10, color: 'var(--text-primary)', fontSize: '0.875rem', outline: 'none'
+              }}
               placeholder="Search routes..."
               value={search}
               onChange={e => setSearch(e.target.value)}

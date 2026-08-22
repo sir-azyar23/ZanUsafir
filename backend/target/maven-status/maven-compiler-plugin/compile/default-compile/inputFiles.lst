@@ -36,6 +36,7 @@
 /home/zubeir/Downloads/ZanUsafir (2)/ZanUsafir (1)/ZanUsafir2/ZanUsafir/backend/src/main/java/com/zanusafiri/dto/RouteSettingsRequest.java
 /home/zubeir/Downloads/ZanUsafir (2)/ZanUsafir (1)/ZanUsafir2/ZanUsafir/backend/src/main/java/com/zanusafiri/dto/TicketRequest.java
 /home/zubeir/Downloads/ZanUsafir (2)/ZanUsafir (1)/ZanUsafir2/ZanUsafir/backend/src/main/java/com/zanusafiri/dto/TicketResponse.java
+/home/zubeir/Downloads/ZanUsafir (2)/ZanUsafir (1)/ZanUsafir2/ZanUsafir/backend/src/main/java/com/zanusafiri/dto/TicketVerifyResponse.java
 /home/zubeir/Downloads/ZanUsafir (2)/ZanUsafir (1)/ZanUsafir2/ZanUsafir/backend/src/main/java/com/zanusafiri/dto/UpdateProfileRequest.java
 /home/zubeir/Downloads/ZanUsafir (2)/ZanUsafir (1)/ZanUsafir2/ZanUsafir/backend/src/main/java/com/zanusafiri/dto/UserResponse.java
 /home/zubeir/Downloads/ZanUsafir (2)/ZanUsafir (1)/ZanUsafir2/ZanUsafir/backend/src/main/java/com/zanusafiri/entity/AuditLog.java

@@ -1,0 +1,1545 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
+import QRCode from 'qrcode';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+import {
+  ConfirmationNumber,
+  ContentCopy,
+  DeleteOutlined,
+  History,
+  Map as MapIcon,
+  Place,
+  Route as RouteIcon,
+  Search,
+  ArrowForward,
+  Home as HomeIcon,
+  Download as DownloadIcon,
+  CheckCircle,
+  DirectionsBus,
+  School,
+  Person,
+  Elderly,
+  Info as InfoIcon,
+  Explore as ExploreIcon,
+  ContactMail,
+  ExpandMore,
+  ChevronRight,
+  Close,
+  ArrowBack,
+  Add,
+  Remove,
+} from '@mui/icons-material';
+import { bookTicketPublic, getBusStops, getFares, getRoute, getRoutes } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
+import zanusafiriLogo from '../assets/zanusafiri.png';
+
+const LS_KEY = 'zanusafiri_ticket_history';
+
+function loadStoredTickets() {
+  try {
+    return JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+  } catch { return []; }
+}
+
+function saveStoredTickets(list) {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(list.slice(0, 50))); } catch { /* ignore */ }
+}
+
+const DEFAULT_CENTER = [-6.165917, 39.202641];
+const ROUTE_COLORS = ['#0B4F8A', '#39B54A', '#36A9E1', '#1E7D3A', '#2E8BCF', '#10B981'];
+
+const isValidCoordinate = (lat, lng) => Number.isFinite(Number(lat)) && Number.isFinite(Number(lng));
+
+const orderedStops = (route) => (
+  [...(route?.stops || [])].sort((a, b) => (a.stopOrder ?? 0) - (b.stopOrder ?? 0))
+);
+
+const stopIcon = (label, background, size = 28) => L.divIcon({
+  className: 'explore-stop-marker',
+  html: `<span style="
+    width:${size}px;height:${size}px;display:flex;align-items:center;justify-content:center;
+    border-radius:999px;background:${background};border:3px solid #fff;color:#fff;
+    font-size:11px;font-weight:800;box-shadow:0 6px 16px rgba(31,41,55,0.18);
+  ">${label}</span>`,
+  iconSize: [size, size],
+  iconAnchor: [size / 2, size / 2],
+  popupAnchor: [0, -size / 2],
+});
+
+const stationIcon = L.divIcon({
+  className: 'explore-station-marker',
+  html: `<span style="
+    width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+    border-radius:6px 6px 6px 2px;background:rgba(54,169,225,0.18);border:2px solid #1E7D3A;
+    color:#1E293B;font-size:10px;font-weight:900;box-shadow:0 4px 10px rgba(31,41,55,0.16);
+  ">S</span>`,
+  iconSize: [22, 22],
+  iconAnchor: [11, 11],
+  popupAnchor: [0, -11],
+});
+
+const haversineDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; // km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
+
+const userIcon = L.divIcon({
+  className: 'explore-user-marker',
+  html: `<span style="
+    width:20px;height:20px;display:flex;align-items:center;justify-content:center;
+    border-radius:50%;background:#2E8BCF;border:3px solid #fff;
+    box-shadow:0 0 10px rgba(46,139,207,0.6);
+  "></span>`,
+  iconSize: [26, 26],
+  iconAnchor: [13, 13],
+  popupAnchor: [0, -13],
+});
+
+const getRoadRouteFromOsrm = async (waypoints) => {
+  const unique = waypoints.filter((point, index, items) => (
+    index === 0 || point[0] !== items[index - 1][0] || point[1] !== items[index - 1][1]
+  ));
+  if (unique.length < 2) return unique;
+
+  const coordinateString = unique.map(([lat, lng]) => `${lng},${lat}`).join(';');
+  const url = `https://router.project-osrm.org/route/v1/driving/${coordinateString}?overview=full&geometries=geojson`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('Road routing request failed');
+  const data = await response.json();
+  return (data.routes?.[0]?.geometry?.coordinates || [])
+    .map(([lng, lat]) => [Number(lat), Number(lng)])
+    .filter(([lat, lng]) => isValidCoordinate(lat, lng));
+};
+
+function FitBounds({ positions }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!positions.length) return;
+    if (positions.length === 1) {
+      map.setView(positions[0], 14);
+      return;
+    }
+    map.fitBounds(positions, { padding: [40, 40], maxZoom: 14 });
+  }, [map, positions]);
+  return null;
+}
+
+const PASSENGER_TYPES = [
+  { key: 'student', label: 'Student', icon: School, fareField: 'studentFare' },
+  { key: 'adult',   label: 'Adult',   icon: Person,  fareField: 'adultFare'   },
+  { key: 'senior',  label: 'Senior 70+', icon: Elderly, fareField: 'seniorFare' },
+];
+
+function TicketFloatingPanel({
+  routes,
+  selectedRoute,
+  passengerType,
+  onPassengerTypeChange,
+  onSelectRoute,
+  onRequestTicket,
+  open,
+  onToggle,
+  isMobile,
+}) {
+  const activeFareEntry = PASSENGER_TYPES.find(p => p.key === passengerType);
+  const fareAmount = selectedRoute && activeFareEntry
+    ? selectedRoute[activeFareEntry.fareField]
+    : null;
+
+  const panelStyle = {
+    position: 'absolute',
+    top: 82,
+    left: 10,
+    width: isMobile ? 'calc(100% - 20px)' : 320,
+    maxWidth: isMobile ? 'none' : 320,
+    zIndex: 400,
+    background: 'rgba(255,255,255,0.97)',
+    backdropFilter: 'blur(14px)',
+    borderRadius: 18,
+    boxShadow: '0 18px 45px rgba(31,41,55,0.15)',
+    border: '1px solid rgba(31,41,55,0.08)',
+    overflow: 'hidden',
+    transition: 'box-shadow 0.2s ease',
+  };
+
+  const fmtFare = (amount) => {
+    if (amount == null) return null;
+    return new Intl.NumberFormat('sw-TZ', { maximumFractionDigits: 0 }).format(Number(amount));
+  };
+
+  return (
+    <div style={panelStyle}>
+      <div style={{ padding: 16 }}>
+        {/* ── Header toggle ── */}
+        <button
+          type="button"
+          onClick={onToggle}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            border: 'none',
+            background: open ? 'rgba(57,181,74,0.08)' : 'transparent',
+            color: 'var(--text-primary)',
+            borderRadius: 12,
+            padding: '10px 12px',
+            cursor: 'pointer',
+            fontWeight: 800,
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ConfirmationNumber fontSize="small" style={{ color: 'var(--primary)' }} />
+            Ticket Search
+          </span>
+          <span style={{ color: 'var(--primary)', fontSize: '0.85rem', fontWeight: 700 }}>{open ? 'Hide' : 'Open'}</span>
+        </button>
+
+        {/* ── Collapsible body ── */}
+        <div style={{
+          maxHeight: open ? 500 : 0,
+          opacity: open ? 1 : 0,
+          overflow: 'hidden',
+          transition: 'max-height 0.35s ease, opacity 0.25s ease',
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 14 }}>
+
+            {/* 1. Select Route */}
+            <div>
+              <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem', marginBottom: 6, display: 'block' }}>1. Select Route</label>
+              <select
+                className="form-input"
+                value={selectedRoute?.id ? String(selectedRoute.id) : ''}
+                onChange={(e) => {
+                  const next = routes.find(r => String(r.id) === e.target.value);
+                  if (next) onSelectRoute(next);
+                }}
+                style={{ fontWeight: 700 }}
+              >
+                <option value="">Choose a route…</option>
+                {routes.map(r => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* 2. Passenger Type */}
+            <div>
+              <label className="form-label" style={{ fontWeight: 700, fontSize: '0.8rem', marginBottom: 8, display: 'block' }}>2. Passenger Type</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                {PASSENGER_TYPES.map(({ key, label, icon: Icon, fareField }) => {
+                  const isActive = passengerType === key;
+                  const routeFare = selectedRoute ? selectedRoute[fareField] : null;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => onPassengerTypeChange(key)}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 5,
+                        padding: '10px 6px',
+                        borderRadius: 12,
+                        border: isActive ? '2px solid #39B54A' : '2px solid rgba(31,41,55,0.12)',
+                        background: isActive ? 'linear-gradient(135deg,rgba(57,181,74,0.14),rgba(30,125,58,0.08))' : 'rgba(31,41,55,0.03)',
+                        cursor: 'pointer',
+                        transition: 'all 0.18s ease',
+                        boxShadow: isActive ? '0 4px 14px rgba(57,181,74,0.2)' : 'none',
+                      }}
+                    >
+                      <Icon style={{ fontSize: 22, color: isActive ? '#1E7D3A' : 'var(--text-secondary)', transition: 'color 0.18s' }} />
+                      <span style={{ fontSize: '0.65rem', fontWeight: 800, color: isActive ? '#1E7D3A' : 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{label}</span>
+                      {routeFare != null && (
+                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: isActive ? '#39B54A' : 'var(--text-secondary)' }}>
+                          {Number(routeFare).toLocaleString()} TZS
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 3. Ticket Fare display */}
+            <div style={{
+              padding: '14px 16px',
+              borderRadius: 14,
+              background: fareAmount != null
+                ? 'linear-gradient(135deg,rgba(57,181,74,0.12),rgba(30,125,58,0.07))'
+                : 'rgba(31,41,55,0.05)',
+              border: `1.5px solid ${fareAmount != null ? 'rgba(57,181,74,0.3)' : 'rgba(31,41,55,0.1)'}`,
+            }}>
+              <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Ticket Fare</div>
+              {fareAmount != null ? (
+                <>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 900, color: '#1E7D3A', lineHeight: 1 }}>
+                    TSh {fmtFare(fareAmount)}
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: 6 }}>
+                    Route: {selectedRoute?.name} &bull; Passenger: {activeFareEntry?.label?.toUpperCase()}
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                  {selectedRoute ? 'Select a passenger type above.' : 'Select a route to see fare.'}
+                </div>
+              )}
+            </div>
+
+            {/* Request Ticket */}
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ width: '100%', justifyContent: 'center', borderRadius: 12, padding: '12px 0', fontWeight: 800, fontSize: '0.95rem' }}
+              onClick={onRequestTicket}
+              disabled={!selectedRoute || !passengerType}
+            >
+              <ConfirmationNumber style={{ fontSize: 18, marginRight: 6 }} />
+              Request Ticket
+            </button>
+
+            {/* Info note */}
+            <div style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(54,169,225,0.07)', border: '1px solid rgba(54,169,225,0.18)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+              <InfoIcon style={{ fontSize: 16, color: '#36A9E1', flexShrink: 0, marginTop: 1 }} />
+              <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                <strong style={{ color: 'var(--text-primary)' }}>Important</strong><br />
+                Fares are set per route and based on passenger type. They do not change based on bus stops.
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BookTicketModal({ open, onClose, route, fares, onBooked, initialFromStopId, initialToStopId }) {
+  const stops = useMemo(() => orderedStops(route), [route]);
+  const [fromStopId, setFromStopId] = useState('');
+  const [toStopId, setToStopId] = useState('');
+  const [travelDate, setTravelDate] = useState('');
+  const [passengerName, setPassengerName] = useState('');
+  const [passengerPhone, setPassengerPhone] = useState('');
+  const [booking, setBooking] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    queueMicrotask(() => {
+      // Use pre-selected stops from Ticket Search, fall back to route's first/second stop
+      const initFrom = initialFromStopId && stops.some(s => String(s.stopId) === String(initialFromStopId))
+        ? String(initialFromStopId) : (stops[0]?.stopId ? String(stops[0].stopId) : '');
+      const initTo = initialToStopId && stops.some(s => String(s.stopId) === String(initialToStopId))
+        ? String(initialToStopId) : (stops[1]?.stopId ? String(stops[1].stopId) : '');
+      setFromStopId(initFrom);
+      setToStopId(initTo);
+      setTravelDate('');
+      setPassengerName('');
+      setPassengerPhone('');
+    });
+  }, [open, route, stops, initialFromStopId, initialToStopId]);
+
+  const matchedFare = useMemo(() => {
+    if (!fromStopId || !toStopId || fromStopId === toStopId) return null;
+    return fares.find(fare => (
+      (String(fare.fromStopId) === fromStopId && String(fare.toStopId) === toStopId) ||
+      (String(fare.fromStopId) === toStopId && String(fare.toStopId) === fromStopId)
+    )) || null;
+  }, [fares, fromStopId, toStopId]);
+
+  if (!open || !route) return null;
+
+  const fmt = (amount, currency) => new Intl.NumberFormat('sw-TZ', {
+    style: 'currency', currency: currency || 'TZS', maximumFractionDigits: 0,
+  }).format(amount);
+
+  const handleBook = async () => {
+    if (!fromStopId || !toStopId) { toast.error('Select boarding and destination stops'); return; }
+    if (fromStopId === toStopId) { toast.error('Boarding and destination must be different'); return; }
+    if (!passengerName.trim()) { toast.error('Passenger name is required'); return; }
+    if (!matchedFare) { toast.error('No fare configured for this stop pair. Contact admin.'); return; }
+    setBooking(true);
+    try {
+      const payload = {
+        routeId: route.id,
+        fromStopId: Number(fromStopId),
+        toStopId: Number(toStopId),
+        passengerName: passengerName.trim(),
+        passengerPhone: passengerPhone.trim() || null,
+      };
+      if (travelDate) payload.travelDate = `${travelDate}T08:00:00`;
+      const res = await bookTicketPublic(payload);
+      const ticket = res.data;
+      toast.success(`Ticket ${ticket.ticketNumber} booked successfully!`);
+      onBooked?.(ticket);
+      onClose();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to book ticket');
+    } finally {
+      setBooking(false);
+    }
+  };
+
+  const handleClose = () => {
+    onClose();
+  };
+
+
+  // ─── Booking Form ───
+  return (
+    <div className="modal-overlay" onClick={handleClose} style={{ justifyContent: 'flex-end', alignItems: 'flex-start', paddingTop: 24, paddingRight: 24 }}>
+      <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 480, width: '100%' }}>
+        <h2 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: 6, color: 'var(--text-primary)' }}>
+          Book Ticket
+        </h2>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginBottom: 20 }}>
+          Route: <strong>{route.name}</strong>
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label className="form-label">Passenger Name *</label>
+            <input className="form-input" value={passengerName} onChange={e => setPassengerName(e.target.value)} placeholder="Your full name" />
+          </div>
+          <div>
+            <label className="form-label">Phone Number (optional)</label>
+            <input className="form-input" value={passengerPhone} onChange={e => setPassengerPhone(e.target.value)} placeholder="+255..." />
+          </div>
+          <div>
+            <label className="form-label">Boarding Stop</label>
+            <select className="form-input" value={fromStopId} onChange={e => setFromStopId(e.target.value)}>
+              <option value="">Select stop</option>
+              {stops.map(stop => (
+                <option key={stop.stopId} value={stop.stopId}>
+                  {stop.stopOrder}. {stop.stopName}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="form-label">Destination Stop</label>
+            <select className="form-input" value={toStopId} onChange={e => setToStopId(e.target.value)}>
+              <option value="">Select stop</option>
+              {stops.map(stop => (
+                <option key={stop.stopId} value={stop.stopId} disabled={String(stop.stopId) === fromStopId}>
+                  {stop.stopOrder}. {stop.stopName}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="form-label">Travel Date (optional)</label>
+            <input className="form-input" type="date" value={travelDate} onChange={e => setTravelDate(e.target.value)} />
+          </div>
+          <div style={{
+            padding: 14, borderRadius: 12,
+            background: matchedFare ? 'var(--primary-tint-strong)' : '#fff7ed',
+            border: `1px solid ${matchedFare ? 'rgba(var(--dark-rgb),0.12)' : 'rgba(251,191,36,0.22)'}`,
+          }}>
+            {matchedFare ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 700, color: 'var(--dark)' }}>Fare</span>
+                <span style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--primary)' }}>
+                  {fmt(matchedFare.amount, matchedFare.currency)}
+                </span>
+              </div>
+            ) : (
+              <span style={{ color: '#9a3412', fontWeight: 600, fontSize: '0.85rem' }}>
+                Admin has not set a fare for this stop pair yet.
+              </span>
+            )}
+          </div>
+        </div>
+        {booking ? (
+          <div style={{ marginTop: 22, padding: '12px 16px', background: '#f0f7ff', border: '1px solid #dcebfa', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ width: 20, height: 20, border: '2.5px solid #0066ff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block', flexShrink: 0 }} />
+            <div>
+              <div style={{ color: '#004cbf', fontWeight: 700, fontSize: '0.9rem' }}>Processing your booking...</div>
+              <div style={{ color: '#0066ff', fontSize: '0.75rem', marginTop: 2, opacity: 0.8 }}>Please wait a moment</div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 10, marginTop: 22, justifyContent: 'flex-end' }}>
+            <button className="btn btn-ghost" type="button" onClick={handleClose}>Cancel</button>
+            <button className="btn btn-primary" type="button" onClick={handleBook} disabled={!matchedFare}>
+              Confirm Booking
+            </button>
+          </div>
+        )}
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    </div>
+  );
+}
+
+/* ── Ticket Preview Overlay Modal ───────────────────────────────── */
+function TicketPreviewModal({ ticket, passengerType, onClose }) {
+  const [qrDataUrl, setQrDataUrl] = useState('');
+  const ticketRef = useRef(null);
+
+  useEffect(() => {
+    if (!ticket) return;
+    const generateQr = async () => {
+      try {
+        const qrContent = JSON.stringify({
+          ticketNumber: ticket.ticketNumber,
+          passenger: ticket.passengerName,
+          route: ticket.routeName,
+          from: ticket.fromStopName || ticket.fromStop || '',
+          to: ticket.toStopName || ticket.toStop || '',
+          fare: ticket.amount ? `${ticket.amount} ${ticket.currency || 'TZS'}` : '—',
+          travelDate: ticket.travelDate || null,
+        });
+        const qrUrl = await QRCode.toDataURL(qrContent, {
+          width: 240,
+          margin: 1,
+          color: { dark: '#000000', light: '#ffffff' }
+        });
+        setQrDataUrl(qrUrl);
+      } catch (err) {
+        console.error('Failed to generate QR', err);
+      }
+    };
+    generateQr();
+  }, [ticket]);
+
+  if (!ticket) return null;
+
+  const getPassengerLabel = (type) => {
+    if (!type) return 'Adult';
+    const cleanType = type.toLowerCase();
+    if (cleanType === 'student') return 'Student';
+    if (cleanType === 'senior') return 'Senior';
+    return 'Adult';
+  };
+
+  const getPassLabel = (type) => {
+    return 'Day Pass';
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!ticket || !ticketRef.current) return;
+    try {
+      const element = ticketRef.current;
+      const canvas = await html2canvas(element, {
+        scale: 4,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+      });
+      const imgData = canvas.toDataURL('image/png');
+      
+      const pdfWidth = 80;
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: [pdfWidth, pdfHeight],
+      });
+      
+      doc.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+      doc.save(`ZANBUS-Ticket-${ticket.ticketNumber}.pdf`);
+      toast.success('Ticket downloaded successfully!');
+    } catch (error) {
+      console.error('Failed to generate PDF', error);
+      toast.error('Failed to download PDF ticket. Please try again.');
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 10000, display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)' }}>
+      <div className="modal-box" onClick={e => e.stopPropagation()} style={{ maxWidth: 360, width: '90%', padding: 0, overflow: 'hidden', borderRadius: 20, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', border: 'none', background: 'var(--bg-light)' }}>
+        
+        {/* Modal Header */}
+        <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>Ticket Preview</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center' }}>
+            <Close style={{ fontSize: 18 }} />
+          </button>
+        </div>
+
+        {/* Scrollable Container */}
+        <div style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, background: '#f8fafc' }}>
+          
+          {/* Thermal Ticket Container (Captured for PDF) */}
+          <div 
+            ref={ticketRef} 
+            style={{ 
+              width: 290, 
+              background: '#ffffff', 
+              padding: '24px 20px 24px', 
+              boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.05)',
+              fontFamily: "'JetBrains Mono', 'Courier New', Courier, monospace",
+              color: '#000000',
+              display: 'flex',
+              flexDirection: 'column',
+              boxSizing: 'border-box'
+            }}
+          >
+            {/* Top Section */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', lineHeight: '1.2rem' }}>
+                <span>Passenger Type:</span>
+                <span style={{ fontWeight: 'bold' }}>{getPassengerLabel(passengerType)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', lineHeight: '1.2rem' }}>
+                <span>Pass Type:</span>
+                <span style={{ fontWeight: 'bold' }}>{getPassLabel(passengerType)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', lineHeight: '1.2rem' }}>
+                <span>Ref No:</span>
+                <span style={{ fontWeight: 'bold' }}>{ticket.ticketNumber}</span>
+              </div>
+            </div>
+
+            {/* Separator 1 */}
+            <div style={{ letterSpacing: '0.02em', textAlign: 'center', margin: '12px 0', fontSize: '0.78rem', fontWeight: 'bold', color: '#000000' }}>
+              ==========================
+            </div>
+
+            {/* Brand Header */}
+            <div style={{ textAlign: 'center', fontSize: '1.4rem', fontWeight: 900, letterSpacing: '0.15em', padding: '2px 0', color: '#000000' }}>
+              ZAN BUS
+            </div>
+
+            {/* Separator 2 */}
+            <div style={{ letterSpacing: '0.02em', textAlign: 'center', margin: '12px 0', fontSize: '0.78rem', fontWeight: 'bold', color: '#000000' }}>
+              ==========================
+            </div>
+
+            {/* Middle Section */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', lineHeight: '1.2rem' }}>
+                <span>Passenger Type:</span>
+                <span style={{ fontWeight: 'bold' }}>{getPassengerLabel(passengerType)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', lineHeight: '1.2rem' }}>
+                <span>Pass Type:</span>
+                <span style={{ fontWeight: 'bold' }}>{getPassLabel(passengerType)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', lineHeight: '1.2rem' }}>
+                <span>Pass Ref No:</span>
+                <span style={{ fontWeight: 'bold' }}>{ticket.ticketNumber}</span>
+              </div>
+            </div>
+
+            {/* Separator 3 */}
+            <div style={{ letterSpacing: '0.02em', textAlign: 'center', margin: '12px 0', fontSize: '0.78rem', fontWeight: 'bold', color: '#000000' }}>
+              ==========================
+            </div>
+
+            {/* QR Code Container */}
+            {qrDataUrl ? (
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '8px 0' }}>
+                <img src={qrDataUrl} alt="QR Code" style={{ width: 180, height: 180, imageRendering: 'pixelated' }} />
+              </div>
+            ) : (
+              <div style={{ width: 180, height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', color: '#888' }}>
+                Generating QR...
+              </div>
+            )}
+
+            {/* Bottom Separator */}
+            <div style={{ letterSpacing: '0.02em', textAlign: 'center', margin: '12px 0 0', fontSize: '0.78rem', fontWeight: 'bold', color: '#000000' }}>
+              --------------------------
+            </div>
+          </div>
+        </div>
+
+        {/* Modal Actions */}
+        <div style={{ padding: '16px 20px', display: 'flex', gap: 12, borderTop: '1px solid var(--border)', background: 'var(--bg-light)' }}>
+          <button className="btn btn-ghost" type="button" onClick={onClose} style={{ flex: '1 0 0', padding: '10px 0', borderRadius: 12 }}>Close</button>
+          <button className="btn btn-primary" type="button" onClick={handleDownloadPdf} style={{
+            flex: '2 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            background: 'linear-gradient(135deg, #39B54A, #1E7D3A)', borderRadius: 12, padding: '10px 0', fontWeight: 800
+          }}>
+            <DownloadIcon style={{ fontSize: 18 }} /> Download Ticket
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Inline Ticket History (public/passenger only) ──────────────── */
+function TicketHistorySection({ onSelectTicket }) {
+  const [tickets, setTickets] = useState(loadStoredTickets);
+
+  // Refresh when a new ticket is booked on this page
+  useEffect(() => {
+    const handler = () => setTickets(loadStoredTickets());
+    window.addEventListener('zanusafiri:ticket_booked', handler);
+    return () => window.removeEventListener('zanusafiri:ticket_booked', handler);
+  }, []);
+
+  const removeTicket = (ticketNumber) => {
+    setTickets(prev => {
+      const updated = prev.filter(t => t.ticketNumber !== ticketNumber);
+      saveStoredTickets(updated);
+      return updated;
+    });
+  };
+
+  const clearAll = () => {
+    if (!window.confirm('Clear all ticket history from this device?')) return;
+    saveStoredTickets([]);
+    setTickets([]);
+  };
+
+  if (tickets.length === 0) return null;
+
+  const fmtMoney = (amount, currency = 'TZS') =>
+    new Intl.NumberFormat('sw-TZ', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
+
+  const fmtDate = (iso) =>
+    iso ? new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+
+  return (
+    <div style={{ marginTop: 28 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <History style={{ color: 'var(--primary)' }} />
+          Your Booking History
+          <span style={{
+            fontSize: '0.72rem', fontWeight: 700, background: 'var(--primary-tint-strong)',
+            color: 'var(--primary)', padding: '2px 10px', borderRadius: 999,
+          }}>{tickets.length}</span>
+        </h3>
+        <button type="button" className="btn btn-ghost" style={{ fontSize: '0.78rem', padding: '6px 12px', color: 'var(--danger)' }} onClick={clearAll}>
+          <DeleteOutlined style={{ fontSize: 16 }} /> Clear All
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
+        {tickets.map(t => (
+          <div key={t.ticketNumber} style={{
+            borderRadius: 14, background: 'var(--bg-card)',
+            border: '1px solid rgba(57,181,74,0.18)',
+            boxShadow: '0 2px 10px rgba(31,41,55,0.06)',
+            overflow: 'hidden',
+          }}>
+            <div style={{ height: 3, background: 'linear-gradient(90deg, #39B54A, #1E7D3A)' }} />
+            <div style={{ padding: '14px 16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '0.95rem', color: 'var(--primary)' }}>
+                      {t.ticketNumber}
+                    </span>
+                    <button
+                      type="button"
+                      title="Copy"
+                      onClick={() => navigator.clipboard.writeText(t.ticketNumber).then(() => toast.success('Copied!'))}
+                      style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)', padding: 2, borderRadius: 4, display: 'flex' }}
+                    >
+                      <ContentCopy style={{ fontSize: 13 }} />
+                    </button>
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: 3 }}>{fmtDate(t.bookedAt)}</div>
+                </div>
+                <button
+                  type="button"
+                  title="Remove"
+                  onClick={() => removeTicket(t.ticketNumber)}
+                  style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-secondary)', padding: 4, borderRadius: 6, display: 'flex' }}
+                >
+                  <DeleteOutlined style={{ fontSize: 17 }} />
+                </button>
+              </div>
+
+              <div style={{ margin: '10px 0', padding: '8px 10px', borderRadius: 8, background: 'var(--bg-light)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <RouteIcon style={{ color: 'var(--primary)', fontSize: 15, flexShrink: 0 }} />
+                <span style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-primary)' }}>{t.routeName || '—'}</span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, background: 'rgba(57,181,74,0.06)' }}>
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>From</div>
+                  <div style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-primary)', marginTop: 2 }}>{t.fromStop || '—'}</div>
+                </div>
+                <ArrowForward style={{ color: 'var(--primary)', fontSize: 16, flexShrink: 0 }} />
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>To</div>
+                  <div style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-primary)', marginTop: 2 }}>{t.toStop || '—'}</div>
+                </div>
+              </div>
+
+              <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed var(--border)', paddingTop: 10 }}>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{
+                    fontSize: '0.75rem',
+                    padding: '6px 12px',
+                    height: 'auto',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    border: '1px solid rgba(57,181,74,0.3)',
+                    color: 'var(--primary)',
+                    background: 'rgba(57,181,74,0.04)',
+                    borderRadius: 8,
+                    fontWeight: 700,
+                  }}
+                  onClick={() => onSelectTicket(t)}
+                >
+                  <ConfirmationNumber style={{ fontSize: 14 }} /> View Ticket
+                </button>
+                {t.amount && (
+                  <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                    {fmtMoney(t.amount, t.currency)}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function ExplorePage() {
+  const navigate = useNavigate();
+  const { user } = useAuth() || {};
+  const isAdmin = user?.role === 'ADMIN';
+  const isStaff = user?.role === 'TRANSPORT_OFFICER';
+  const showHistory = !isAdmin && !isStaff; // show only to public / passenger users
+
+  const [stations, setStations] = useState([]);
+  const [routes, setRoutes] = useState([]);
+  const [fares, setFares] = useState([]);
+  const [selectedRoute, setSelectedRoute] = useState(null);
+  const [highlightStationId, setHighlightStationId] = useState(null);
+  const [routeLine, setRouteLine] = useState([]);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [previewTicket, setPreviewTicket] = useState(null);
+  const [previewPassengerType, setPreviewPassengerType] = useState('adult');
+  const [sidebarTab, setSidebarTab] = useState('routes');
+  const [ticketPanelOpen, setTicketPanelOpen] = useState(false);
+  const [ticketPassengerType, setTicketPassengerType] = useState('adult');
+  // Booking flow: 'search' | 'form' | 'review'
+  const [bookStep, setBookStep] = useState('search');
+  const [formName, setFormName] = useState('');
+  const [formPhone, setFormPhone] = useState('');
+  const [formId, setFormId] = useState('');
+  const [numPassengers, setNumPassengers] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
+  const [nearbyPlaces, setNearbyPlaces] = useState([]);
+  const [isScanning, setIsScanning] = useState(false);
+
+  const scanLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      return;
+    }
+    setIsScanning(true);
+    const toastId = toast.loading('Scanning location...');
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        let placeName = 'Unknown Area';
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+          if (res.ok) {
+            const data = await res.json();
+            placeName = data.address?.suburb || data.address?.neighbourhood || data.address?.city || data.display_name.split(',')[0] || 'Unknown Area';
+          }
+        } catch (e) { console.error('Reverse geocode failed'); }
+        setUserLocation({ lat: latitude, lng: longitude, accuracy, name: placeName });
+        toast.success('Location found! Nearby stations sorted.', { id: toastId });
+        setIsScanning(false);
+        setSidebarTab('stations');
+
+        try {
+          const query = `[out:json];node(around:500,${latitude},${longitude})[amenity];out 3;`;
+          const placesRes = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
+          if (placesRes.ok) {
+            const placesData = await placesRes.json();
+            const places = placesData.elements.filter(e => e.tags && e.tags.name).map(e => ({
+              name: e.tags.name,
+              type: e.tags.amenity,
+              distance: Math.round(haversineDistance(latitude, longitude, e.lat, e.lon) * 1000)
+            })).sort((a,b) => a.distance - b.distance).slice(0, 3);
+            setNearbyPlaces(places);
+          }
+        } catch (e) { console.error('Nearby places failed'); }
+      },
+      (err) => {
+        toast.error('Location access denied or unavailable.', { id: toastId });
+        setIsScanning(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    if (mounted) scanLocation();
+    return () => { mounted = false; };
+  }, [scanLocation]);
+
+  const routeStops = useMemo(() => orderedStops(selectedRoute), [selectedRoute]);
+
+  // Nearest stop: from selected route's stops if route selected, else all stations
+  const nearestStop = useMemo(() => {
+    if (!userLocation) return null;
+    const pool = selectedRoute && routeStops.length > 0
+      ? routeStops.map(s => ({ id: s.stopId, name: s.stopName, latitude: s.latitude, longitude: s.longitude }))
+      : stations;
+    if (pool.length === 0) return null;
+    let closest = null;
+    let minD = Infinity;
+    pool.forEach(s => {
+      if (isValidCoordinate(s.latitude, s.longitude)) {
+        const d = haversineDistance(userLocation.lat, userLocation.lng, Number(s.latitude), Number(s.longitude));
+        if (d < minD) { minD = d; closest = { ...s, distance: d }; }
+      }
+    });
+    return closest;
+  }, [userLocation, selectedRoute, routeStops, stations]);
+
+  const routeTotalDistance = useMemo(() => {
+    if (!routeLine || routeLine.length < 2) return 0;
+    let dist = 0;
+    for (let i = 0; i < routeLine.length - 1; i++) {
+      dist += haversineDistance(routeLine[i][0], routeLine[i][1], routeLine[i+1][0], routeLine[i+1][1]);
+    }
+    return dist;
+  }, [routeLine]);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [stopsRes, routesRes, faresRes] = await Promise.all([
+        getBusStops(),
+        getRoutes(),
+        getFares(),
+      ]);
+      const routeList = (routesRes.data || []).filter(r => r.status === 'ACTIVE');
+      setStations(stopsRes.data || []);
+      setRoutes(routeList);
+      setFares((faresRes.data || []).filter(f => f.status === 'ACTIVE'));
+    } catch {
+      toast.error('Failed to load travel data');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    queueMicrotask(loadData);
+    const handleDataRefresh = () => loadData();
+    window.addEventListener('zanusafiri:data-refresh', handleDataRefresh);
+    return () => window.removeEventListener('zanusafiri:data-refresh', handleDataRefresh);
+  }, [loadData]);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobileView(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const selectRoute = useCallback(async (routeSummary) => {
+    try {
+      const res = await getRoute(routeSummary.id);
+      setSelectedRoute(res.data);
+      setHighlightStationId(null);
+    } catch {
+      toast.error('Failed to load route details');
+    }
+  }, []);
+
+  // When route changes, keep passenger type as-is (no stop defaults needed)
+  const routeColor = useMemo(() => {
+    if (!selectedRoute) return ROUTE_COLORS[0];
+    const index = routes.findIndex(r => r.id === selectedRoute.id);
+    return ROUTE_COLORS[(index >= 0 ? index : 0) % ROUTE_COLORS.length];
+  }, [selectedRoute, routes]);
+
+  const stopPositions = useMemo(() => (
+    routeStops
+      .filter(stop => isValidCoordinate(stop.latitude, stop.longitude))
+      .map(stop => [Number(stop.latitude), Number(stop.longitude)])
+  ), [routeStops]);
+
+  useEffect(() => {
+    if (!stopPositions.length) {
+      queueMicrotask(() => setRouteLine([]));
+      return;
+    }
+    let cancelled = false;
+    getRoadRouteFromOsrm(stopPositions)
+      .then(line => { if (!cancelled) setRouteLine(line.length ? line : stopPositions); })
+      .catch(() => { if (!cancelled) setRouteLine(stopPositions); });
+    return () => { cancelled = true; };
+  }, [stopPositions]);
+
+  const filteredStations = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let result = stations;
+    if (q) {
+      result = stations.filter(s =>
+        s.name?.toLowerCase().includes(q) ||
+        (s.address || '').toLowerCase().includes(q) ||
+        (s.stopCode || '').toLowerCase().includes(q)
+      );
+    }
+    if (userLocation) {
+      return [...result].sort((a, b) => {
+        const dA = isValidCoordinate(a.latitude, a.longitude) ? haversineDistance(userLocation.lat, userLocation.lng, a.latitude, a.longitude) : Infinity;
+        const dB = isValidCoordinate(b.latitude, b.longitude) ? haversineDistance(userLocation.lat, userLocation.lng, b.latitude, b.longitude) : Infinity;
+        return dA - dB;
+      });
+    }
+    return result;
+  }, [stations, search, userLocation]);
+
+  const filteredRoutes = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return routes;
+    return routes.filter(r =>
+      r.name?.toLowerCase().includes(q) ||
+      (r.startPoint || '').toLowerCase().includes(q) ||
+      (r.endPoint || '').toLowerCase().includes(q)
+    );
+  }, [routes, search]);
+
+  const highlightedStopIds = useMemo(() => [], []);
+
+  const mapBounds = useMemo(() => {
+    if (selectedRoute && stopPositions.length) return stopPositions;
+    const stationPositions = stations
+      .filter(s => isValidCoordinate(s.latitude, s.longitude))
+      .map(s => [Number(s.latitude), Number(s.longitude)]);
+    return stationPositions.length ? stationPositions : [DEFAULT_CENTER];
+  }, [selectedRoute, stopPositions, stations]);
+
+  return (
+    <div className="ep-wrapper">
+      <div className="ep-header">
+        <div className="ep-header-left">
+          <h2 className="ep-title">
+            <MapIcon style={{ color: '#22C55E' }} />
+            Explore Routes &amp; Stations
+          </h2>
+          <p className="ep-subtitle">
+            View all stations on the map, explore routes through their stops, and request tickets using administrator-configured fares.
+          </p>
+        </div>
+        <div className="ep-header-right">
+          {selectedRoute && (
+            <div className="ep-top-route-fares">
+              <div className="ep-top-route-name">
+                <RouteIcon style={{ fontSize: 16, color: '#39B54A' }} /> {selectedRoute.name}
+              </div>
+              <div className="ep-top-fares-list">
+                <div className="ep-top-fare-item student">
+                  <span className="ep-fare-label">Student</span>
+                  <strong className="ep-fare-val">{selectedRoute.studentFare != null ? Number(selectedRoute.studentFare).toLocaleString() : '—'} TZS</strong>
+                </div>
+                <div className="ep-top-fare-item adult">
+                  <span className="ep-fare-label">Adult</span>
+                  <strong className="ep-fare-val">{selectedRoute.adultFare != null ? Number(selectedRoute.adultFare).toLocaleString() : '—'} TZS</strong>
+                </div>
+                <div className="ep-top-fare-item senior">
+                  <span className="ep-fare-label">Senior 70+</span>
+                  <strong className="ep-fare-val">{selectedRoute.seniorFare != null ? Number(selectedRoute.seniorFare).toLocaleString() : '—'} TZS</strong>
+                </div>
+              </div>
+            </div>
+          )}
+          {userLocation && (
+            <div className="ep-top-location">
+               <div className="ep-loc-icon"><Place style={{ color: '#39B54A', fontSize: 20 }} /></div>
+               <div>
+                 <div className="ep-loc-label">You are here</div>
+                 <div className="ep-loc-val">{userLocation.name}</div>
+                 <div className="ep-loc-acc">Accurate to {Math.round(userLocation.accuracy)}m</div>
+               </div>
+            </div>
+          )}
+          {nearestStop && (
+            <div className="ep-top-location ep-top-nearest">
+               <div className="ep-loc-icon ep-loc-icon-bus"><DirectionsBus style={{ color: '#39B54A', fontSize: 20 }} /></div>
+               <div>
+                 <div className="ep-loc-label">Nearest Bus Stop</div>
+                 <div className="ep-loc-val ep-loc-val-green">{nearestStop.name}</div>
+                 <div className="ep-loc-acc">{Math.round(nearestStop.distance * 1000)} m (≈ {Math.round(nearestStop.distance / 0.083 * 60)} min walk)</div>
+               </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className={`explore-layout${ticketPanelOpen ? ' ticket-panel-open' : ''}`}>
+        <aside className="ep-sidebar">
+          {/* Main sidebar contents wrapper to allow layout flex and Back Home button placement */}
+          <div className="ep-sidebar-main">
+            <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', fontSize: 18 }} />
+                <input
+                  className="form-input"
+                  style={{ paddingLeft: 34, width: '100%' }}
+                  placeholder="Search stations or routes..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={scanLocation}
+                disabled={isScanning}
+                className="btn btn-primary"
+                style={{ padding: '0 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                title="Scan Current Location"
+              >
+                <ExploreIcon style={{ fontSize: 18 }} />
+                <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{isScanning ? 'Scanning...' : 'Scan'}</span>
+              </button>
+            </div>
+
+            <div className="explore-tabs">
+              <button type="button" className={`explore-tab ${sidebarTab === 'routes' ? 'active' : ''}`} onClick={() => setSidebarTab('routes')}>
+                <RouteIcon fontSize="small" /> Routes ({filteredRoutes.length})
+              </button>
+              <button type="button" className={`explore-tab ${sidebarTab === 'stations' ? 'active' : ''}`} onClick={() => setSidebarTab('stations')}>
+                <Place fontSize="small" /> Stations ({filteredStations.length})
+              </button>
+            </div>
+
+            {loading ? (
+              <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-secondary)' }}>Loading...</div>
+            ) : sidebarTab === 'routes' ? (
+              <div className="explore-list">
+                {filteredRoutes.length === 0 ? (
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', padding: 12 }}>No active routes found.</p>
+                ) : filteredRoutes.map(route => {
+                  const isExpanded = selectedRoute?.id === route.id;
+                  const stops = isExpanded ? routeStops : (route.stops || []).sort((a, b) => (a.stopOrder ?? 0) - (b.stopOrder ?? 0));
+                  return (
+                    <div key={route.id} className={`ep-route-accordion ${isExpanded ? 'expanded' : ''}`}>
+                      <button
+                        type="button"
+                        className="ep-route-accordion-header"
+                        onClick={() => selectRoute(route)}
+                      >
+                        <span className="ep-route-accordion-chevron">
+                          {isExpanded
+                            ? <ExpandMore style={{ fontSize: 18 }} />
+                            : <ChevronRight style={{ fontSize: 18 }} />}
+                        </span>
+                        <div className="ep-route-accordion-info">
+                          <div className="ep-route-accordion-name">{route.name}</div>
+                          <div className="ep-route-accordion-sub">
+                            {(route.stops?.length || 0)} stop{(route.stops?.length || 0) !== 1 ? 's' : ''} on this route
+                          </div>
+                        </div>
+                      </button>
+
+                      {isExpanded && (
+                        <div className="ep-route-accordion-stops">
+                          {routeStops.map((stop, index) => {
+                            const d = userLocation && isValidCoordinate(stop.latitude, stop.longitude) 
+                               ? haversineDistance(userLocation.lat, userLocation.lng, stop.latitude, stop.longitude).toFixed(1) 
+                               : null;
+                            return (
+                            <div key={stop.id || stop.stopId} className="ep-route-stop-row">
+                              <span className="ep-route-stop-dot" style={{ background: routeColor }}>{stop.stopOrder ?? index + 1}</span>
+                              <div className="ep-route-stop-label" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                                <div>{stop.stopName}</div>
+                                {d && <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: 2 }}>{d} km from you</div>}
+                              </div>
+                            </div>
+                          )})}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="explore-list">
+                {filteredStations.length === 0 ? (
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', padding: 12 }}>No stations found.</p>
+                ) : filteredStations.map(station => {
+                  const d = userLocation && isValidCoordinate(station.latitude, station.longitude) 
+                     ? haversineDistance(userLocation.lat, userLocation.lng, station.latitude, station.longitude).toFixed(1) 
+                     : null;
+                  return (
+                  <button
+                    key={station.id}
+                    type="button"
+                    className={`explore-list-item ${highlightStationId === station.id ? 'active' : ''}`}
+                    onClick={() => {
+                      setHighlightStationId(station.id);
+                      setSelectedRoute(null);
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.9rem' }}>{station.name}</div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: 4 }}>{station.address || 'Zanzibar'}</div>
+                    {d && <div style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: 4, fontWeight: 700 }}>{d} km from you</div>}
+                  </button>
+                )})}
+              </div>
+            )}
+
+            {selectedRoute && (
+              <div className="ep-sidebar-ticket-btn-wrap">
+                <button
+                  className="ep-ticket-btn"
+                  type="button"
+                  onClick={() => { setTicketPanelOpen(true); setBookingOpen(false); }}
+                  disabled={routeStops.length < 2}
+                >
+                  <ConfirmationNumber style={{ fontSize: 18 }} /> Open Ticket Panel
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Sidebar bottom: Back Home */}
+          <div className="ep-sidebar-bottom">
+            <button type="button" className="ep-home-btn"
+              onClick={() => isAdmin ? navigate('/dashboard') : navigate(-1)}
+            >
+              <HomeIcon style={{ fontSize: 18 }} /> Back Home
+            </button>
+          </div>
+        </aside>
+
+        {/* ── Inline Ticket Panel (slide-in between sidebar and map) ── */}
+        {ticketPanelOpen && (
+          <div className="ep-ticket-panel">
+            {/* Panel Header */}
+            <div className="ep-tp-header">
+              {bookStep !== 'search' && (
+                <button className="ep-tp-back" onClick={() => setBookStep(bookStep === 'review' ? 'form' : 'search')}>
+                  <ArrowBack style={{ fontSize: 18 }} />
+                </button>
+              )}
+              <span className="ep-tp-title">
+                {bookStep === 'search' ? '🎫 Ticket Search' : bookStep === 'form' ? '📋 Book Ticket' : '✅ Booking Review'}
+              </span>
+              <button className="ep-tp-close" onClick={() => { setTicketPanelOpen(false); setBookStep('search'); }}>
+                <Close style={{ fontSize: 18 }} />
+              </button>
+            </div>
+
+            {/* Step indicators */}
+            <div className="ep-tp-steps">
+              {['search','form','review'].map((s, i) => (
+                <div key={s} className={`ep-tp-step ${bookStep === s ? 'active' : ['search','form','review'].indexOf(bookStep) > i ? 'done' : ''}`}>
+                  <span className="ep-tp-step-dot">{i + 1}</span>
+                  <span className="ep-tp-step-label">{['Search','Book','Review'][i]}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="ep-tp-body">
+              {/* ── STEP 1: Ticket Search ── */}
+              {bookStep === 'search' && (() => {
+                const activeFare = PASSENGER_TYPES.find(p => p.key === ticketPassengerType);
+                const fareAmt = selectedRoute && activeFare ? selectedRoute[activeFare.fareField] : null;
+                const fmtN = n => n != null ? new Intl.NumberFormat('sw-TZ', { maximumFractionDigits: 0 }).format(Number(n)) : null;
+                return (
+                  <div className="ep-tp-section">
+                    <label className="ep-tp-label">1. Select Route</label>
+                    <select className="form-input" style={{ fontWeight: 700, marginBottom: 16 }}
+                      value={selectedRoute?.id ? String(selectedRoute.id) : ''}
+                      onChange={e => { const r = routes.find(x => String(x.id) === e.target.value); if (r) selectRoute(r); }}>
+                      <option value="">Choose a route…</option>
+                      {routes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                    </select>
+
+                    <label className="ep-tp-label">2. Passenger Type</label>
+                    <div className="ep-tp-pax-grid">
+                      {PASSENGER_TYPES.map(({ key, label, icon: Icon, fareField }) => {
+                        const isAct = ticketPassengerType === key;
+                        const rf = selectedRoute ? selectedRoute[fareField] : null;
+                        return (
+                          <button key={key} type="button" onClick={() => setTicketPassengerType(key)}
+                            className={`ep-tp-pax-card${isAct ? ' active' : ''}`}>
+                            <Icon style={{ fontSize: 24 }} />
+                            <span className="ep-tp-pax-label">{label}</span>
+                            {rf != null && <span className="ep-tp-pax-fare">{fmtN(rf)} TZS</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className={`ep-tp-fare-box${fareAmt != null ? ' has-fare' : ''}`}>
+                      <div className="ep-tp-fare-label">TICKET FARE</div>
+                      {fareAmt != null ? (
+                        <>
+                          <div className="ep-tp-fare-amount">TSh {fmtN(fareAmt)}</div>
+                          <div className="ep-tp-fare-sub">Route: {selectedRoute?.name} · Passenger: {activeFare?.label?.toUpperCase()}</div>
+                        </>
+                      ) : (
+                        <div className="ep-tp-fare-empty">{selectedRoute ? 'Select a passenger type above.' : 'Select a route to see fare.'}</div>
+                      )}
+                    </div>
+
+                    <button className="ep-tp-btn-primary" disabled={!selectedRoute || !ticketPassengerType}
+                      onClick={() => { setFormName(''); setFormPhone(''); setFormId(''); setNumPassengers(1); setBookStep('form'); }}>
+                      <ConfirmationNumber style={{ fontSize: 18 }} /> Request Ticket
+                    </button>
+
+                    <div className="ep-tp-info-note">
+                      <InfoIcon style={{ fontSize: 15, color: '#36A9E1' }} />
+                      <span>Fares are set per route and based on passenger type. They do not change based on bus stops.</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ── STEP 2: Book Ticket ── */}
+              {bookStep === 'form' && (() => {
+                const activeFare = PASSENGER_TYPES.find(p => p.key === ticketPassengerType);
+                const fareAmt = selectedRoute && activeFare ? selectedRoute[activeFare.fareField] : null;
+                const fmtN = n => n != null ? new Intl.NumberFormat('sw-TZ', { maximumFractionDigits: 0 }).format(Number(n)) : '—';
+                const total = fareAmt != null ? Number(fareAmt) * numPassengers : null;
+                return (
+                  <div className="ep-tp-section">
+                    {/* Selected ticket summary */}
+                    <div className="ep-tp-summary-box">
+                      <div className="ep-tp-summary-title">Selected Ticket</div>
+                      <div className="ep-tp-summary-row"><span>Route</span><strong>{selectedRoute?.name}</strong></div>
+                      <div className="ep-tp-summary-row"><span>Passenger Type</span><strong>{activeFare?.label?.toUpperCase()}</strong></div>
+                      <div className="ep-tp-summary-row"><span>Ticket Fare</span><strong style={{ color: '#1E7D3A' }}>TSh {fmtN(fareAmt)}</strong></div>
+                    </div>
+
+                    <label className="ep-tp-label" style={{ marginTop: 14 }}>Book Ticket</label>
+
+                    <div className="ep-tp-field">
+                      <label className="form-label">1. Full Name *</label>
+                      <input className="form-input" value={formName} onChange={e => setFormName(e.target.value)} placeholder="Enter your full name" />
+                    </div>
+                    <div className="ep-tp-field">
+                      <label className="form-label">2. Phone Number</label>
+                      <input className="form-input" value={formPhone} onChange={e => setFormPhone(e.target.value)} placeholder="Enter your phone number" />
+                    </div>
+                    <div className="ep-tp-field">
+                      <label className="form-label">3. ID Number (Optional)</label>
+                      <input className="form-input" value={formId} onChange={e => setFormId(e.target.value)} placeholder="Enter ID number (optional)" />
+                    </div>
+                    <div className="ep-tp-field">
+                      <label className="form-label">4. Number of Passengers</label>
+                      <div className="ep-tp-stepper">
+                        <button type="button" className="ep-tp-stepper-btn" onClick={() => setNumPassengers(p => Math.max(1, p - 1))}><Remove style={{ fontSize: 16 }} /></button>
+                        <span className="ep-tp-stepper-val">{numPassengers}</span>
+                        <button type="button" className="ep-tp-stepper-btn" onClick={() => setNumPassengers(p => Math.min(10, p + 1))}><Add style={{ fontSize: 16 }} /></button>
+                      </div>
+                    </div>
+
+                    {total != null && (
+                      <div className="ep-tp-total-box">
+                        <span>Total Amount</span>
+                        <strong>TSh {fmtN(total)}</strong>
+                      </div>
+                    )}
+
+                    <button className="ep-tp-btn-primary" disabled={!formName.trim()}
+                      onClick={() => setBookStep('review')}>
+                      Continue to Review
+                    </button>
+                  </div>
+                );
+              })()}
+
+              {/* ── STEP 3: Booking Review ── */}
+              {bookStep === 'review' && (() => {
+                const activeFare = PASSENGER_TYPES.find(p => p.key === ticketPassengerType);
+                const fareAmt = selectedRoute && activeFare ? selectedRoute[activeFare.fareField] : null;
+                const fmtN = n => n != null ? new Intl.NumberFormat('sw-TZ', { maximumFractionDigits: 0 }).format(Number(n)) : '—';
+                const total = fareAmt != null ? Number(fareAmt) * numPassengers : null;
+                const handleSubmit = async () => {
+                  if (!selectedRoute || !ticketPassengerType || !formName.trim()) { toast.error('Missing required info'); return; }
+                  setSubmitting(true);
+                  try {
+                    const stops = orderedStops(selectedRoute);
+                    const payload = {
+                      routeId: selectedRoute.id,
+                      fromStopId: stops[0]?.stopId || stops[0]?.id,
+                      toStopId: stops[stops.length - 1]?.stopId || stops[stops.length - 1]?.id,
+                      passengerName: formName.trim(),
+                      passengerPhone: formPhone.trim() || null,
+                      passengerType: ticketPassengerType.toUpperCase(),
+                    };
+                    const res = await bookTicketPublic(payload);
+                    const t = res.data;
+                    if (showHistory && t.ticketNumber) {
+                      const entry = {
+                        ticketNumber: t.ticketNumber,
+                        routeName: selectedRoute.name,
+                        fromStop: t.fromStopName || '',
+                        toStop: t.toStopName || '',
+                        amount: t.amount ?? fareAmt,
+                        currency: 'TZS',
+                        bookedAt: t.createdAt || new Date().toISOString(),
+                        passengerType: ticketPassengerType
+                      };
+                      saveStoredTickets([entry, ...loadStoredTickets().filter(x => x.ticketNumber !== entry.ticketNumber)]);
+                      window.dispatchEvent(new CustomEvent('zanusafiri:ticket_booked'));
+                    }
+                    setPreviewTicket(t);
+                    setPreviewPassengerType(ticketPassengerType);
+                    setTicketPanelOpen(false);
+                    setBookStep('search');
+                  } catch (err) {
+                    toast.error(err.response?.data?.message || 'Booking failed');
+                  } finally { setSubmitting(false); }
+                };
+                return (
+                  <div className="ep-tp-section">
+                    <div className="ep-tp-review-title">Booking Review</div>
+                    <div className="ep-tp-review-card">
+                      <div className="ep-tp-review-row"><span>Route</span><strong>{selectedRoute?.name}</strong></div>
+                      <div className="ep-tp-review-row"><span>Passenger Type</span><strong>{activeFare?.label?.toUpperCase()}</strong></div>
+                      <div className="ep-tp-review-row"><span>Ticket Fare</span><strong style={{ color: '#1E7D3A' }}>TSh {fmtN(fareAmt)}</strong></div>
+                      <div className="ep-tp-review-row"><span>No. of Passengers</span><strong>{numPassengers}</strong></div>
+                      <div className="ep-tp-review-row ep-tp-review-total"><span>Total Amount</span><strong>TSh {fmtN(total)}</strong></div>
+                    </div>
+                    <div className="ep-tp-review-title" style={{ marginTop: 14 }}>Passenger Details</div>
+                    <div className="ep-tp-review-card">
+                      <div className="ep-tp-review-row"><span>Full Name</span><strong>{formName}</strong></div>
+                      <div className="ep-tp-review-row"><span>Phone Number</span><strong>{formPhone || 'N/A'}</strong></div>
+                      <div className="ep-tp-review-row"><span>ID Number</span><strong>{formId || 'N/A'}</strong></div>
+                    </div>
+                    <div className="ep-tp-review-actions">
+                      <button className="ep-tp-btn-ghost" onClick={() => setBookStep('form')}>Cancel</button>
+                      <button className="ep-tp-btn-primary" style={{ flex: 1 }} onClick={handleSubmit} disabled={submitting}>
+                        {submitting ? 'Processing…' : 'Proceed to Payment'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+
+        <div className="ep-map-wrap">
+          <MapContainer center={DEFAULT_CENTER} zoom={11} style={{ height: '100%', width: '100%', minHeight: 520 }}>
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            <FitBounds positions={mapBounds} />
+
+            {!selectedRoute && stations.map(station => {
+              if (!isValidCoordinate(station.latitude, station.longitude)) return null;
+              const pos = [Number(station.latitude), Number(station.longitude)];
+              const highlighted = highlightStationId === station.id;
+              return (
+                <Marker key={station.id} position={pos}
+                  icon={highlighted ? stopIcon('S', 'var(--primary-dark)', 30) : stationIcon}
+                  eventHandlers={{ click: () => setHighlightStationId(station.id) }}>
+                  <Popup><strong>{station.name}</strong><br />{station.address || 'Station'}</Popup>
+                </Marker>
+              );
+            })}
+
+            {selectedRoute && routeStops.map((stop, index) => {
+              if (!isValidCoordinate(stop.latitude, stop.longitude)) return null;
+              const pos = [Number(stop.latitude), Number(stop.longitude)];
+              const order = stop.stopOrder ?? index + 1;
+              return (
+                <Marker key={stop.id || stop.stopId} position={pos} icon={stopIcon(order, routeColor)}>
+                  <Popup><strong>Stop {order}: {stop.stopName}</strong><br />{stop.address || selectedRoute.name}</Popup>
+                </Marker>
+              );
+            })}
+
+            {routeLine.length >= 2 && (
+              <Polyline positions={routeLine} pathOptions={{ color: routeColor, weight: 5, opacity: 0.85 }} />
+            )}
+
+            {userLocation && (
+              <Marker position={[userLocation.lat, userLocation.lng]} icon={userIcon}>
+                <Popup>You are here<br />{userLocation.name}</Popup>
+              </Marker>
+            )}
+          </MapContainer>
+
+          {/* Route Summary */}
+          {selectedRoute && (
+            <div className="ep-route-summary-card">
+               <div className="ep-rs-header"><RouteIcon style={{ fontSize: 16 }}/> Route Summary</div>
+               <div className="ep-rs-grid">
+                  <div className="ep-rs-item">
+                     <span className="ep-rs-label">Total Distance</span>
+                     <span className="ep-rs-val">{routeTotalDistance.toFixed(1)} km</span>
+                  </div>
+                  <div className="ep-rs-item">
+                     <span className="ep-rs-label">Estimated Travel Time</span>
+                     <span className="ep-rs-val">{Math.round(routeTotalDistance / 0.5)} - {Math.round(routeTotalDistance / 0.5) + 5} min</span>
+                  </div>
+                  <div className="ep-rs-item">
+                     <span className="ep-rs-label">Total Stops</span>
+                     <span className="ep-rs-val">{routeStops.length}</span>
+                  </div>
+                  <div className="ep-rs-item">
+                     <span className="ep-rs-label">Buses on Route</span>
+                     <span className="ep-rs-val"><DirectionsBus style={{ fontSize: 16, color: '#22C55E' }}/> {selectedRoute.assignedBusesCount || 0}</span>
+                  </div>
+               </div>
+            </div>
+          )}
+
+          {/* Map Legend */}
+          <div className="ep-map-legend">
+             <div className="ep-legend-item"><span className="ep-legend-dot user"></span> You are here</div>
+             <div className="ep-legend-item"><span className="ep-legend-line"></span> Selected Route</div>
+             <div className="ep-legend-item"><span className="ep-legend-dot stop"></span> Bus Stop</div>
+          </div>
+        </div>
+      </div>
+
+      {showHistory && (
+        <TicketHistorySection
+          onSelectTicket={(t) => {
+            setPreviewTicket(t);
+            setPreviewPassengerType(t.passengerType || 'adult');
+          }}
+        />
+      )}
+
+      {previewTicket && (
+        <TicketPreviewModal
+          ticket={previewTicket}
+          passengerType={previewPassengerType}
+          onClose={() => setPreviewTicket(null)}
+        />
+      )}
+
+      {/* Footer Nav */}
+      <nav className="ep-footer-nav">
+        <a href="/explore" className="ep-footer-link ep-footer-active"><ExploreIcon style={{ fontSize: 18 }} /> Explore</a>
+        <button type="button" className="ep-footer-link" onClick={() => setSidebarTab('routes')}><RouteIcon style={{ fontSize: 18 }} /> Routes</button>
+        <button type="button" className="ep-footer-link" onClick={() => setSidebarTab('stations')}><Place style={{ fontSize: 18 }} /> Stations</button>
+        <a href="/" className="ep-footer-link"><HomeIcon style={{ fontSize: 18 }} /> About</a>
+        <a href="/" className="ep-footer-link"><ContactMail style={{ fontSize: 18 }} /> Contact</a>
+      </nav>
+    </div>
+  );
+}
+

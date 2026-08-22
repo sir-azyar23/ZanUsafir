@@ -1,10 +1,10 @@
 export const brandTheme = {
-  primary: '#39B54A',
-  primaryHover: '#1E7D3A',
-  accent: '#36A9E1',
-  accentHover: '#2E8BCF',
-  dark: '#1F2937',
-  darkSurface: '#1E7D3A',
+  primary: '#12a150',
+  primaryHover: '#18b95c',
+  accent: '#0f7a3f',
+  accentHover: '#0b3d24',
+  dark: '#0d1a14',
+  darkSurface: '#0b3d24',
 };
 
 export const chartPalette = [

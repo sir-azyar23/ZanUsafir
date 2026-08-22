@@ -142,16 +142,19 @@ export default function DriversPage() {
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', position: 'relative', zIndex: 1 }}>
           <div style={{ position: 'relative' }}>
-            <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.55)', fontSize: 18 }} />
+            <Search style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', fontSize: 18 }} />
             <input
-              style={{ paddingLeft: 34, width: 200, padding: '9px 12px 9px 34px', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 10, color: '#ffffff', fontSize: '0.875rem', outline: 'none' }}
+              style={{
+                paddingLeft: 34, width: 200, padding: '9px 12px 9px 34px',
+                background: 'var(--bg-light)', border: '1px solid var(--border)',
+                borderRadius: 10, color: 'var(--text-primary)', fontSize: '0.875rem', outline: 'none'
+              }}
               placeholder="Search drivers..."
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          <button className="btn" onClick={() => { setEditTarget(null); setModalOpen(true); }}
-            style={{ background: 'rgba(255,255,255,0.15)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.25)', backdropFilter: 'blur(8px)', boxShadow: 'none' }}>
+          <button className="btn btn-primary" onClick={() => { setEditTarget(null); setModalOpen(true); }}>
             <Add fontSize="small" /> Add Driver
           </button>
         </div>

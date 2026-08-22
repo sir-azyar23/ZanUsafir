@@ -178,18 +178,18 @@ export default function RoutesPage({ pageTitle = 'Routes', pageDescription = nul
               gap: 6,
               height: 40,
               padding: '0 20px',
-              background: '#3FAF4A',
+              background: 'var(--primary)',
               border: 'none',
               borderRadius: '10px',
               color: '#ffffff',
               fontWeight: 650,
               fontSize: '0.875rem',
               cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(63, 175, 74, 0.2)',
+              boxShadow: '0 4px 12px rgba(18, 161, 80, 0.2)',
               transition: 'all 0.2s',
             }}
-            onMouseOver={e => e.currentTarget.style.background = '#2E8B3D'}
-            onMouseOut={e => e.currentTarget.style.background = '#3FAF4A'}
+            onMouseOver={e => e.currentTarget.style.background = '#0f7a3f'}
+            onMouseOut={e => e.currentTarget.style.background = 'var(--primary)'}
           >
             <Add fontSize="small" /> Add Route
           </button>
@@ -243,7 +243,7 @@ export default function RoutesPage({ pageTitle = 'Routes', pageDescription = nul
                         width: 32,
                         height: 32,
                         borderRadius: '50%',
-                        background: '#3FAF4A',
+                        background: 'var(--primary)',
                         color: '#ffffff',
                         display: 'flex',
                         alignItems: 'center',
@@ -270,15 +270,15 @@ export default function RoutesPage({ pageTitle = 'Routes', pageDescription = nul
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: 6,
-                          background: 'rgba(57, 181, 74, 0.08)',
-                          border: '1px solid rgba(57, 181, 74, 0.15)',
-                          color: '#1E7D3A',
+                          background: 'var(--primary-tint)',
+                          border: '1px solid var(--border)',
+                          color: '#0f7a3f',
                           padding: '5px 12px',
                           borderRadius: '8px',
                           fontWeight: '600',
                           fontSize: '0.8rem'
                         }}>
-                          <Place style={{ fontSize: 14, color: '#3FAF4A' }} />
+                          <Place style={{ fontSize: 14, color: 'var(--primary)' }} />
                           {route.startPoint}
                         </span>
                       ) : (
@@ -337,15 +337,15 @@ export default function RoutesPage({ pageTitle = 'Routes', pageDescription = nul
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: 6,
-                          background: 'rgba(57, 181, 74, 0.08)',
-                          border: '1px solid rgba(57, 181, 74, 0.15)',
-                          color: '#1E7D3A',
+                          background: 'var(--primary-tint)',
+                          border: '1px solid var(--border)',
+                          color: '#0f7a3f',
                           padding: '5px 12px',
                           borderRadius: '8px',
                           fontWeight: '600',
                           fontSize: '0.8rem'
                         }}>
-                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#3FAF4A', display: 'inline-block' }}></span>
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--primary)', display: 'inline-block' }}></span>
                           Active
                         </span>
                       ) : (
@@ -421,7 +421,7 @@ export default function RoutesPage({ pageTitle = 'Routes', pageDescription = nul
                                   justifyContent: 'center',
                                   background: '#ffffff',
                                   border: '1px solid #E2E8F0',
-                                  color: '#3FAF4A',
+                                  color: 'var(--primary)',
                                   borderRadius: '8px',
                                   cursor: 'pointer',
                                   transition: 'all 0.2s',
@@ -514,8 +514,8 @@ export default function RoutesPage({ pageTitle = 'Routes', pageDescription = nul
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: currentPage === page ? '#3FAF4A' : '#ffffff',
-                    border: currentPage === page ? '1px solid #3FAF4A' : '1px solid #E2E8F0',
+                    background: currentPage === page ? 'var(--primary)' : '#ffffff',
+                    border: currentPage === page ? '1px solid var(--primary)' : '1px solid #E2E8F0',
                     borderRadius: '8px',
                     color: currentPage === page ? '#ffffff' : '#475569',
                     cursor: 'pointer',
@@ -596,15 +596,15 @@ export default function RoutesPage({ pageTitle = 'Routes', pageDescription = nul
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 6,
-                  background: viewTarget.status === 'ACTIVE' ? 'rgba(57, 181, 74, 0.08)' : 'rgba(220, 38, 38, 0.08)',
-                  border: viewTarget.status === 'ACTIVE' ? '1px solid rgba(57, 181, 74, 0.15)' : '1px solid rgba(220, 38, 38, 0.15)',
-                  color: viewTarget.status === 'ACTIVE' ? '#1E7D3A' : '#991B1B',
+                  background: viewTarget.status === 'ACTIVE' ? 'var(--primary-tint)' : 'rgba(220, 38, 38, 0.08)',
+                  border: viewTarget.status === 'ACTIVE' ? '1px solid var(--border)' : '1px solid rgba(220, 38, 38, 0.15)',
+                  color: viewTarget.status === 'ACTIVE' ? '#0f7a3f' : '#991B1B',
                   padding: '6px 14px',
                   borderRadius: '8px',
                   fontWeight: '600',
                   fontSize: '0.82rem'
                 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: viewTarget.status === 'ACTIVE' ? '#3FAF4A' : '#DC2626', display: 'inline-block' }}></span>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: viewTarget.status === 'ACTIVE' ? 'var(--primary)' : '#DC2626', display: 'inline-block' }}></span>
                   {viewTarget.status}
                 </span>
               </div>
@@ -623,8 +623,8 @@ export default function RoutesPage({ pageTitle = 'Routes', pageDescription = nul
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
                 <div style={{ border: '1px solid #E5E7EB', borderRadius: 10, padding: '12px 14px' }}>
                   <span style={{ fontSize: '0.78rem', color: '#64748B', display: 'block', textTransform: 'uppercase', fontWeight: 600 }}>From (Start Point)</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontWeight: 700, color: '#1E7D3A' }}>
-                    <Place style={{ fontSize: 16, color: '#3FAF4A' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontWeight: 700, color: 'var(--primary)' }}>
+                    <Place style={{ fontSize: 16, color: 'var(--primary)' }} />
                     {viewTarget.startPoint || '—'}
                   </div>
                 </div>
